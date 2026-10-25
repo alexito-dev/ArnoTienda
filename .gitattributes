@@ -1,0 +1,3 @@
+# Los scripts de shell tienen que quedar con saltos de línea de Linux al
+# descargar el proyecto en Windows; con los de Windows (CRLF) fallan al correr.
+*.sh text eol=lf
