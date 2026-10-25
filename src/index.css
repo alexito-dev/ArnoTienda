@@ -1,0 +1,80 @@
+@import url('https://fonts.cdnfonts.com/css/codec-pro');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    /* Palette: 847CB8 (primary), 1E1C21 (dark), E9E9F5 (light), A7D792 (green), FF66C4 (pink) */
+    --color-bg: #F5F5FB;
+    --color-sidebar: #E9E9F5;
+    --color-sidebar-hover: #DEDEEE;
+    --color-surface: #FFFFFF;
+    --color-surface-hover: #EEEEF7;
+    --color-border: rgba(30, 28, 33, 0.10);
+    --color-border-strong: rgba(30, 28, 33, 0.18);
+    --color-text: #1E1C21;
+    --color-text-muted: #726C82;
+    --color-primary: #847CB8;
+    --color-primary-strong: #6F66A8;
+    --color-accent: #FF66C4;
+    --color-success: #A7D792;
+    --color-btn-dark: #1E1C21;
+  }
+
+  .dark {
+    --color-bg: #1E1C21;
+    --color-sidebar: #171519;
+    --color-sidebar-hover: #2A2730;
+    --color-surface: #26232B;
+    --color-surface-hover: #302C38;
+    --color-border: rgba(233, 233, 245, 0.10);
+    --color-border-strong: rgba(233, 233, 245, 0.20);
+    --color-text: #E9E9F5;
+    --color-text-muted: #9A93AC;
+    --color-primary: #847CB8;
+    --color-primary-strong: #9A90D0;
+    --color-accent: #FF66C4;
+    --color-success: #A7D792;
+    --color-btn-dark: #E9E9F5;
+  }
+}
+
+*, ::before, ::after {
+  font-family: 'Codec Pro', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Codec Pro', 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, textarea, select {
+  font-family: 'Codec Pro', 'Plus Jakarta Sans', sans-serif !important;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(132, 124, 184, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(132, 124, 184, 0.6);
+}

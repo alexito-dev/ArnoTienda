@@ -1,0 +1,45 @@
+services:
+  tienda-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arnotienda_frontend
+    restart: always
+    networks:
+      - coolify
+    depends_on:
+      - tienda-backend
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.arnotienda.rule=Host(`tienda.arno.services`)
+      - traefik.http.routers.arnotienda.entrypoints=https
+      - traefik.http.routers.arnotienda.tls=true
+      - traefik.http.routers.arnotienda.tls.certresolver=letsencrypt
+      - traefik.http.services.arnotienda.loadbalancer.server.port=80
+      - traefik.http.routers.arnotienda-http.rule=Host(`tienda.arno.services`)
+      - traefik.http.routers.arnotienda-http.entrypoints=http
+      - traefik.http.routers.arnotienda-http.middlewares=arnotienda-redirect
+      - traefik.http.middlewares.arnotienda-redirect.redirectscheme.scheme=https
+
+  tienda-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: arnotienda_backend
+    restart: always
+    networks:
+      - coolify
+    volumes:
+      - arnotienda_db:/app/data
+    environment:
+      - PORT=3008
+      - DB_PATH=/app/data/database.sqlite
+      - BUNAISTORE_API_KEY=Shop::2WR8PHImP8Njh3kHI6twuz2AWF8
+
+volumes:
+  arnotienda_db:
+
+networks:
+  coolify:
+    external: true
