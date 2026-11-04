@@ -312,52 +312,52 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Trust & Guarantee Strip (Minimalist & Clean) */}
-      <section className="border-t border-zinc-800/80 bg-[#121315] py-10 px-4 md:px-8 mt-14 select-none">
+      {/* Trust & Guarantee Strip in Arno Brand Palette */}
+      <section className="border-t border-white/10 bg-[#171519] py-10 px-4 md:px-8 mt-14 select-none">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-zinc-900/60 border border-zinc-800/60">
-            <div className="p-3 rounded-2xl bg-white text-zinc-950 shrink-0">
+          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#1E1C21] border border-white/10">
+            <div className="p-3 rounded-2xl bg-[#847CB8]/15 text-[#847CB8] shrink-0">
               <Zap className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">Entrega Instantánea</h4>
-              <p className="text-xs text-zinc-400 mt-0.5 leading-snug">
+              <h4 className="text-sm font-bold text-[#E9E9F5]">Entrega Instantánea</h4>
+              <p className="text-xs text-[#9A93AC] mt-0.5 leading-snug">
                 Activación digital en menos de 60 segundos tras confirmar el pago.
               </p>
             </div>
           </div>
 
-          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-zinc-900/60 border border-zinc-800/60">
-            <div className="p-3 rounded-2xl bg-white text-zinc-950 shrink-0">
+          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#1E1C21] border border-white/10">
+            <div className="p-3 rounded-2xl bg-[#A7D792]/15 text-[#A7D792] shrink-0">
               <ShieldCheck className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">Garantía Protegida</h4>
-              <p className="text-xs text-zinc-400 mt-0.5 leading-snug">
+              <h4 className="text-sm font-bold text-[#E9E9F5]">Garantía Protegida</h4>
+              <p className="text-xs text-[#9A93AC] mt-0.5 leading-snug">
                 Reposición garantizada y soporte técnico continuo oficial.
               </p>
             </div>
           </div>
 
-          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-zinc-900/60 border border-zinc-800/60">
-            <div className="p-3 rounded-2xl bg-white text-zinc-950 shrink-0">
+          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#1E1C21] border border-white/10">
+            <div className="p-3 rounded-2xl bg-[#FF66C4]/15 text-[#FF66C4] shrink-0">
               <Lock className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">Pagos en Soles</h4>
-              <p className="text-xs text-zinc-400 mt-0.5 leading-snug">
+              <h4 className="text-sm font-bold text-[#E9E9F5]">Pagos en Soles</h4>
+              <p className="text-xs text-[#9A93AC] mt-0.5 leading-snug">
                 Paga con Yape, Plin, BCP, BBVA, Interbank o Arno Wallet.
               </p>
             </div>
           </div>
 
-          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-zinc-900/60 border border-zinc-800/60">
-            <div className="p-3 rounded-2xl bg-white text-zinc-950 shrink-0">
+          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#1E1C21] border border-white/10">
+            <div className="p-3 rounded-2xl bg-amber-500/15 text-amber-400 shrink-0">
               <Headphones className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">Atención Directa</h4>
-              <p className="text-xs text-zinc-400 mt-0.5 leading-snug">
+              <h4 className="text-sm font-bold text-[#E9E9F5]">Atención Directa</h4>
+              <p className="text-xs text-[#9A93AC] mt-0.5 leading-snug">
                 Asistencia inmediata por WhatsApp para resolver tus dudas.
               </p>
             </div>
@@ -366,8 +366,8 @@ export const App: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-800/80 py-8 px-4 md:px-8 text-center text-xs text-zinc-500 select-none bg-[#0e0f12]">
-        <p className="font-bold text-zinc-300 mb-1">ArnoTienda • Licencias & Suscripciones Digitales</p>
+      <footer className="border-t border-white/10 py-8 px-4 md:px-8 text-center text-xs text-[#9A93AC] select-none bg-[#141216]">
+        <p className="font-bold text-[#E9E9F5] mb-1">ArnoTienda • Licencias & Suscripciones Digitales</p>
         <p>© 2026 ArnoAI Services. Todos los derechos reservados.</p>
       </footer>
 
