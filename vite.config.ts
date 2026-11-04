@@ -13,5 +13,12 @@ export default defineConfig({
   server: {
     port: 3001,
     host: true,
+    proxy: {
+      '/api': {
+        target: 'https://tienda.arno.services',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
 });

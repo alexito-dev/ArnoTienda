@@ -1,8 +1,6 @@
 import { Product, Provider, StoreOrder, StoreMetrics, StoreSettings } from '../types/store';
 
-const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-  ? 'http://localhost:3008/api'
-  : '/api';
+const API_BASE_URL = '/api';
 
 export interface BunaiProfile {
   user_id: number;
