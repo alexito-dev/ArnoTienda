@@ -24,22 +24,26 @@ export const CategoryFilter: React.FC<Props> = ({
       {/* Title & Sorting Controls Bar */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#E9E9F5] tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#F5F5FB] tracking-tight">
             Catálogo Digital
           </h2>
-          <p className="text-xs text-[#9A93AC] font-medium mt-1">
+          <p className="text-xs text-[#B6AFCA] font-medium mt-1">
             {totalProductsCount} productos con entrega inmediata y garantía oficial
           </p>
         </div>
 
-        {/* Sorting Dropdown */}
-        <div className="flex items-center space-x-2 bg-[#1E1C21] border border-white/10 px-4 py-2 rounded-full shadow-sm">
-          <ArrowUpDown className="w-3.5 h-3.5 text-[#847CB8]" />
-          <span className="text-xs font-semibold text-[#9A93AC]">Ordenar:</span>
+        {/* Sorting Dropdown with explicit accessible label */}
+        <div className="flex items-center space-x-2 bg-[#1E1C21] border border-white/10 px-4 py-2 rounded-full shadow-sm focus-within:ring-2 focus-within:ring-[#746CAE]">
+          <label htmlFor="sort-catalog-select" className="flex items-center space-x-1.5 text-xs font-semibold text-[#B6AFCA] cursor-pointer">
+            <ArrowUpDown className="w-3.5 h-3.5 text-[#847CB8]" aria-hidden="true" focusable="false" />
+            <span>Ordenar:</span>
+          </label>
           <select
+            id="sort-catalog-select"
+            aria-label="Criterio de ordenación del catálogo"
             value={selectedSort}
             onChange={(e) => onSelectSort(e.target.value as SortOption)}
-            className="bg-transparent text-xs font-bold text-[#E9E9F5] focus:outline-none cursor-pointer"
+            className="bg-transparent text-xs font-bold text-[#F5F5FB] focus:outline-none cursor-pointer"
           >
             <option value="featured" className="bg-[#1E1C21] text-white">Destacados</option>
             <option value="bestsellers" className="bg-[#1E1C21] text-white">Más Vendidos</option>
@@ -51,25 +55,27 @@ export const CategoryFilter: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Category Pills Bar in Arno Signature Purple */}
-      <div className="flex items-center space-x-2.5 overflow-x-auto pb-1 scrollbar-none pt-2">
+      {/* Category Pills Navigation (Accessible role="tablist") */}
+      <nav aria-label="Filtro por categorías de catálogo" className="flex items-center space-x-2.5 overflow-x-auto pb-1 scrollbar-none pt-2">
         {categories.map((cat) => {
           const isActive = selectedCategory === cat.id;
           return (
             <button
               key={cat.id}
+              type="button"
+              aria-pressed={isActive}
               onClick={() => onSelectCategory(cat.id)}
-              className={`px-5 py-2 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 border ${
+              className={`px-5 py-2 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#746CAE] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171519] ${
                 isActive
-                  ? 'bg-[#847CB8] text-white border-[#847CB8] shadow-md shadow-[#847CB8]/25 scale-105'
-                  : 'bg-[#1E1C21] text-[#9A93AC] hover:text-[#E9E9F5] border-white/10 hover:border-white/20'
+                  ? 'bg-[#746CAE] text-white border-[#746CAE] shadow-md shadow-[#746CAE]/25 scale-105'
+                  : 'bg-[#1E1C21] text-[#B6AFCA] hover:text-[#F5F5FB] border-white/10 hover:border-white/20'
               }`}
             >
               {cat.label}
             </button>
           );
         })}
-      </div>
+      </nav>
     </div>
   );
 };

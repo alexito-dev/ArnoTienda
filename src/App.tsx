@@ -243,8 +243,8 @@ export const App: React.FC = () => {
         }}
       />
 
-      {/* Main Content Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 py-6">
+      {/* Main Content Workspace (WCAG Landmark & Target) */}
+      <main id="main-content" tabIndex={-1} className="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 py-6 focus:outline-none">
         {isAdminOpen ? (
           /* Admin Panel Workspace */
           <AdminPanel

@@ -18,11 +18,65 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3008;
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'arno_admin_sec_token_2026';
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// ----------------------------------------------------
+// OWASP A05: Security Headers & Server Hardening
+// ----------------------------------------------------
+app.disable('x-powered-by');
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+
+// Middleware with bounded payload limits (OWASP A04)
+app.use(cors({
+  origin: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Token', 'X-Requested-With'],
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// ----------------------------------------------------
+// OWASP A04: In-Memory Rate Limiting
+// ----------------------------------------------------
+const rateLimitMap = new Map();
+const rateLimiter = (maxRequests = 100, windowMs = 60000) => (req, res, next) => {
+  const ip = req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip) || { count: 0, resetAt: now + windowMs };
+
+  if (now > entry.resetAt) {
+    entry.count = 1;
+    entry.resetAt = now + windowMs;
+  } else {
+    entry.count++;
+  }
+  rateLimitMap.set(ip, entry);
+
+  if (entry.count > maxRequests) {
+    return res.status(429).json({ error: 'Demasiadas solicitudes. Por favor intente más tarde.' });
+  }
+  next();
+};
+
+// General rate limit: 150 requests per minute
+app.use(rateLimiter(150, 60000));
+
+// Stricter rate limit for orders/checkout: 20 per minute
+const checkoutLimiter = rateLimiter(20, 60000);
+
+// Helper for input sanitization (OWASP A03 Stored XSS prevention)
+const sanitizeText = (val, maxLen = 255) => {
+  if (typeof val !== 'string') return '';
+  return val.replace(/[<>]/g, '').trim().slice(0, maxLen);
+};
 
 // Initial Seed Products
 const INITIAL_SEED = [
@@ -449,7 +503,8 @@ app.get('/api/products', async (req, res) => {
     const rows = await getAll('SELECT * FROM products ORDER BY updatedAt DESC');
     res.json(rows.map(formatRowToProduct));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[Products] Error listando productos:', err.message);
+    res.status(500).json({ error: 'Error interno recuperando el catálogo' });
   }
 });
 
@@ -501,33 +556,54 @@ app.post('/api/products', async (req, res) => {
 
   try {
     await execute(querySql, [
-      p.id, p.name, p.subtitle || 'Licencia Digital', p.category || 'multimodal', p.badge || 'OFERTA',
-      p.regionBadge || 'GLOBAL KEY', p.canActivateInCountry ? 1 : 0, p.discountPercent || 0,
-      p.originalPriceDisplay || '', p.priceDisplay || '0.00', p.g2aPlusPriceDisplay || '',
-      p.yearlyPriceDisplay || p.priceDisplay, p.originalYearlyPriceDisplay || p.originalPriceDisplay,
-      p.priceUnit || '', p.numericPrice || 0, p.numericYearlyPrice || p.numericPrice || 0,
-      p.numericOriginalPrice || 0, p.sellerName || 'ArnoAI Official', p.sellerRating || 4.9,
-      p.sellerFeedbackPercent || 99.8, p.sellerSales || 3420, p.shieldIncluded ? 1 : 0,
-      p.headerBg || 'purple', p.iconType || 'spark', p.description || '',
-      JSON.stringify(p.checklist || []), JSON.stringify(p.modelsIncluded || []),
-      JSON.stringify(p.specs || []), p.idealFor || '', p.activationKeySample || '',
-      p.imageUrl || '', p.isActive !== false ? 1 : 0
+      sanitizeText(p.id, 100),
+      sanitizeText(p.name, 200),
+      sanitizeText(p.subtitle || 'Licencia Digital', 150),
+      sanitizeText(p.category || 'multimodal', 50),
+      sanitizeText(p.badge || 'OFERTA', 50),
+      sanitizeText(p.regionBadge || 'GLOBAL KEY', 50),
+      p.canActivateInCountry ? 1 : 0,
+      Number(p.discountPercent) || 0,
+      sanitizeText(p.originalPriceDisplay || '', 50),
+      sanitizeText(p.priceDisplay || '0.00', 50),
+      sanitizeText(p.g2aPlusPriceDisplay || '', 50),
+      sanitizeText(p.yearlyPriceDisplay || p.priceDisplay, 50),
+      sanitizeText(p.originalYearlyPriceDisplay || p.originalPriceDisplay, 50),
+      sanitizeText(p.priceUnit || '', 50),
+      Number(p.numericPrice) || 0,
+      Number(p.numericYearlyPrice || p.numericPrice) || 0,
+      Number(p.numericOriginalPrice) || 0,
+      sanitizeText(p.sellerName || 'ArnoAI Official', 100),
+      Number(p.sellerRating) || 4.9,
+      Number(p.sellerFeedbackPercent) || 99.8,
+      Number(p.sellerSales) || 3420,
+      p.shieldIncluded ? 1 : 0,
+      sanitizeText(p.headerBg || 'purple', 50),
+      sanitizeText(p.iconType || 'spark', 50),
+      sanitizeText(p.description || '', 1000),
+      JSON.stringify(p.checklist || []),
+      JSON.stringify(p.modelsIncluded || []),
+      JSON.stringify(p.specs || []),
+      sanitizeText(p.idealFor || '', 300),
+      sanitizeText(p.activationKeySample || '', 100),
+      sanitizeText(p.imageUrl || '', 500),
+      p.isActive !== false ? 1 : 0
     ]);
     res.json({ success: true, message: 'Producto guardado en PostgreSQL', id: p.id });
   } catch (err) {
     console.error('[PostgreSQL] Error guardando producto:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error al persistir el producto' });
   }
 });
 
 // DELETE /api/products/:id - Delete product from PostgreSQL DB
 app.delete('/api/products/:id', async (req, res) => {
-  const id = req.params.id;
+  const id = sanitizeText(req.params.id, 100);
   try {
     await execute('DELETE FROM products WHERE id = ?', [id]);
     res.json({ success: true, message: 'Producto eliminado de PostgreSQL' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error eliminando el producto' });
   }
 });
 
@@ -556,7 +632,7 @@ app.post('/api/products/reset', async (req, res) => {
     }
     res.json({ success: true, message: 'Base de datos PostgreSQL restablecida' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error restableciendo el catálogo' });
   }
 });
 
@@ -566,28 +642,29 @@ app.get('/api/bunaistore/profile', async (req, res) => {
     const result = await getBunaiProfile();
     res.status(result.status).json(result.data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error comunicando con servicio externo' });
   }
 });
 
 // GET /api/bunaistore/products - BunaiStore live catalog
 app.get('/api/bunaistore/products', async (req, res) => {
   try {
-    const limit = req.query.limit || 100;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 200);
     const result = await getBunaiProducts(limit);
     res.status(result.status).json(result.data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error recuperando catálogo externo' });
   }
 });
 
 // GET /api/bunaistore/product/:id - BunaiStore product details
 app.get('/api/bunaistore/product/:id', async (req, res) => {
   try {
-    const result = await getBunaiProductDetails(req.params.id);
+    const prodId = sanitizeText(req.params.id, 100);
+    const result = await getBunaiProductDetails(prodId);
     res.status(result.status).json(result.data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error recuperando detalle de producto externo' });
   }
 });
 
@@ -632,45 +709,71 @@ app.post('/api/bunaistore/sync', async (req, res) => {
 
   try {
     await execute(querySql, [
-      p.id, p.name, p.subtitle || 'Entrega Inmediata API', p.category || 'multimodal', p.badge || 'BUNAISTORE',
-      p.regionBadge || 'GLOBAL KEY', 1, p.discountPercent || 0,
-      p.originalPriceDisplay || '', p.priceDisplay || '0.00', p.g2aPlusPriceDisplay || '',
-      p.priceDisplay, p.originalPriceDisplay || '',
-      p.priceUnit || '', p.numericPrice || 0, p.numericPrice || 0,
-      p.numericOriginalPrice || 0, 'BunaiStore Verified', 5.0,
-      100.0, 999, 1,
-      p.headerBg || 'dark-purple', p.iconType || 'zap', p.description || '',
+      sanitizeText(p.id, 100),
+      sanitizeText(p.name, 200),
+      sanitizeText(p.subtitle || 'Entrega Inmediata API', 150),
+      sanitizeText(p.category || 'multimodal', 50),
+      sanitizeText(p.badge || 'BUNAISTORE', 50),
+      'GLOBAL KEY',
+      1,
+      Number(p.discountPercent) || 0,
+      sanitizeText(p.originalPriceDisplay || '', 50),
+      sanitizeText(p.priceDisplay || '0.00', 50),
+      sanitizeText(p.g2aPlusPriceDisplay || '', 50),
+      sanitizeText(p.priceDisplay || '0.00', 50),
+      sanitizeText(p.originalPriceDisplay || '', 50),
+      sanitizeText(p.priceUnit || '', 50),
+      Number(p.numericPrice) || 0,
+      Number(p.numericPrice) || 0,
+      Number(p.numericOriginalPrice) || 0,
+      'BunaiStore Verified',
+      5.0,
+      100.0,
+      999,
+      1,
+      'dark-purple',
+      'zap',
+      sanitizeText(p.description || '', 1000),
       JSON.stringify(p.checklist || ['Entrega inmediata garantizada', 'Soporte 24/7', 'Clave o cuenta oficial']),
       JSON.stringify(p.modelsIncluded || []),
       JSON.stringify(p.specs || [{ label: 'Proveedor', value: 'BunaiStore API' }, { label: 'Garantía', value: `${p.warrantyHours || 24} Horas` }]),
-      p.idealFor || '', p.activationKeySample || 'BUNAI-AUTO-DELIVERY',
-      p.imageUrl || '', 1,
-      p.bunaiProductId || p.id, p.bunaiStock || 0, p.wholesalePriceUSD || 0
+      sanitizeText(p.idealFor || '', 300),
+      'BUNAI-AUTO-DELIVERY',
+      sanitizeText(p.imageUrl || '', 500),
+      1,
+      sanitizeText(p.bunaiProductId || p.id, 100),
+      Number(p.bunaiStock) || 0,
+      Number(p.wholesalePriceUSD) || 0
     ]);
     res.json({ success: true, message: 'Producto BunaiStore sincronizado exitosamente en la tienda', id: p.id });
   } catch (err) {
     console.error('[BunaiStore] Error sincronizando producto BunaiStore:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error al sincronizar el producto' });
   }
 });
 
-// POST /api/bunaistore/order - Create BunaiStore order
-app.post('/api/bunaistore/order', async (req, res) => {
+// POST /api/bunaistore/order - Create BunaiStore order (rate limited)
+app.post('/api/bunaistore/order', checkoutLimiter, async (req, res) => {
   try {
     const { productId, qty } = req.body;
     if (!productId) {
       res.status(400).json({ error: 'Falta productId' });
       return;
     }
-    const result = await createBunaiOrder(productId, qty || 1);
+    const cleanId = sanitizeText(productId, 100);
+    const cleanQty = Math.min(Math.max(parseInt(qty, 10) || 1, 1), 50);
+    const result = await createBunaiOrder(cleanId, cleanQty);
     res.status(result.status).json(result.data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error procesando la orden con el proveedor' });
   }
 });
 
-// Multi-Providers API Routes
-// GET /api/providers - List all providers
+// ----------------------------------------------------
+// Multi-Providers API Routes (OWASP A02: Sensitive Data Masking)
+// ----------------------------------------------------
+
+// GET /api/providers - List all providers with MASKED API keys
 app.get('/api/providers', async (req, res) => {
   try {
     const rows = await getAll('SELECT * FROM providers ORDER BY createdAt ASC');
@@ -681,25 +784,31 @@ app.get('/api/providers', async (req, res) => {
       countMap[pid] = parseInt(c.count, 10);
     });
 
-    const formatted = rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      type: r.type,
-      apiBaseUrl: r.apibaseurl || r.apiBaseUrl,
-      apiKey: r.apikey || r.apiKey,
-      apiSecret: r.apisecret || r.apiSecret,
-      authHeaderName: r.authheadername || r.authHeaderName,
-      pingEndpoint: r.pingendpoint || r.pingEndpoint,
-      balanceUSD: Number(r.balanceusd ?? r.balanceUSD ?? 0),
-      status: r.status,
-      autoFulfill: Boolean(r.autofulfill ?? r.autoFulfill),
-      marginMultiplier: Number(r.marginmultiplier ?? r.marginMultiplier ?? 3.0),
-      notes: r.notes,
-      productCount: countMap[r.id] || (r.id === 'bunaistore' ? countMap['bunaistore'] || 14 : 0),
-    }));
+    // OWASP A02: Mask raw credentials before exposing via REST
+    const formatted = rows.map((r) => {
+      const rawKey = r.apikey || r.apiKey || '';
+      const maskedKey = rawKey ? (rawKey.length > 8 ? rawKey.slice(0, 4) + '••••••••' + rawKey.slice(-4) : '••••••••') : '';
+
+      return {
+        id: r.id,
+        name: r.name,
+        type: r.type,
+        apiBaseUrl: r.apibaseurl || r.apiBaseUrl,
+        apiKey: maskedKey,
+        hasKey: Boolean(rawKey),
+        authHeaderName: r.authheadername || r.authHeaderName,
+        pingEndpoint: r.pingendpoint || r.pingEndpoint,
+        balanceUSD: Number(r.balanceusd ?? r.balanceUSD ?? 0),
+        status: r.status,
+        autoFulfill: Boolean(r.autofulfill ?? r.autoFulfill),
+        marginMultiplier: Number(r.marginmultiplier ?? r.marginMultiplier ?? 3.0),
+        notes: r.notes,
+        productCount: countMap[r.id] || (r.id === 'bunaistore' ? countMap['bunaistore'] || 14 : 0),
+      };
+    });
     res.json(formatted);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error listando proveedores' });
   }
 });
 
@@ -709,6 +818,19 @@ app.post('/api/providers', async (req, res) => {
   if (!p.id || !p.name || !p.apiBaseUrl) {
     res.status(400).json({ error: 'Faltan campos obligatorios: id, name o apiBaseUrl' });
     return;
+  }
+
+  const cleanId = sanitizeText(p.id, 100);
+  let finalApiKey = p.apiKey || '';
+  let finalApiSecret = p.apiSecret || '';
+
+  // OWASP A02: If user passed masked key, preserve previous key from DB
+  if (finalApiKey.includes('••••') || finalApiSecret.includes('••••')) {
+    const existing = await getOne('SELECT apiKey, apiSecret FROM providers WHERE id = ?', [cleanId]);
+    if (existing) {
+      if (finalApiKey.includes('••••')) finalApiKey = existing.apikey || existing.apiKey || '';
+      if (finalApiSecret.includes('••••')) finalApiSecret = existing.apisecret || existing.apiSecret || '';
+    }
   }
 
   const querySql = `
@@ -732,41 +854,41 @@ app.post('/api/providers', async (req, res) => {
 
   try {
     await execute(querySql, [
-      p.id,
-      p.name,
-      p.type || 'custom',
-      p.apiBaseUrl,
-      p.apiKey || '',
-      p.apiSecret || '',
-      p.authHeaderName || 'X-API-Key',
-      p.pingEndpoint || '',
-      p.balanceUSD || 0,
-      p.status || 'active',
+      cleanId,
+      sanitizeText(p.name, 200),
+      sanitizeText(p.type || 'custom', 50),
+      sanitizeText(p.apiBaseUrl, 500),
+      finalApiKey,
+      finalApiSecret,
+      sanitizeText(p.authHeaderName || 'X-API-Key', 100),
+      sanitizeText(p.pingEndpoint || '', 200),
+      Number(p.balanceUSD) || 0,
+      sanitizeText(p.status || 'active', 50),
       p.autoFulfill ? 1 : 0,
-      p.marginMultiplier || 3.0,
-      p.notes || ''
+      Number(p.marginMultiplier) || 3.0,
+      sanitizeText(p.notes || '', 1000)
     ]);
-    res.json({ success: true, message: 'Proveedor configurado exitosamente', id: p.id });
+    res.json({ success: true, message: 'Proveedor configurado exitosamente', id: cleanId });
   } catch (err) {
     console.error('[MultiProvider] Error guardando proveedor:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error guardando proveedor' });
   }
 });
 
 // DELETE /api/providers/:id - Delete a provider
 app.delete('/api/providers/:id', async (req, res) => {
-  const id = req.params.id;
+  const id = sanitizeText(req.params.id, 100);
   try {
     await execute('DELETE FROM providers WHERE id = ?', [id]);
     res.json({ success: true, message: 'Proveedor eliminado' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error eliminando el proveedor' });
   }
 });
 
 // POST /api/providers/:id/test - Test connection & live balance
 app.post('/api/providers/:id/test', async (req, res) => {
-  const id = req.params.id;
+  const id = sanitizeText(req.params.id, 100);
   try {
     const row = await getOne('SELECT * FROM providers WHERE id = ?', [id]);
     if (!row) {
@@ -802,13 +924,13 @@ app.post('/api/providers/:id/test', async (req, res) => {
     }
     res.json(testResult);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error ejecutando prueba de conectividad' });
   }
 });
 
 // GET /api/providers/:id/products - Fetch live catalog from a provider
 app.get('/api/providers/:id/products', async (req, res) => {
-  const id = req.params.id;
+  const id = sanitizeText(req.params.id, 100);
   try {
     const row = await getOne('SELECT * FROM providers WHERE id = ?', [id]);
     if (!row) {
@@ -827,11 +949,11 @@ app.get('/api/providers/:id/products', async (req, res) => {
       pingEndpoint: row.pingendpoint || row.pingEndpoint,
     };
 
-    const limit = parseInt(req.query.limit, 10) || 100;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 200);
     const prods = await fetchProviderProducts(providerObj, limit);
     res.json(prods);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error recuperando catálogo del proveedor' });
   }
 });
 
@@ -879,57 +1001,60 @@ app.post('/api/providers/sync-product', async (req, res) => {
 
   try {
     await execute(querySql, [
-      p.id,
-      p.name,
-      p.subtitle || 'Licencia Digital Oficial',
-      p.category || 'multimodal',
-      p.badge || 'PROVEEDOR VERIFICADO',
-      p.regionBadge || 'GLOBAL KEY',
+      sanitizeText(p.id, 100),
+      sanitizeText(p.name, 200),
+      sanitizeText(p.subtitle || 'Licencia Digital Oficial', 150),
+      sanitizeText(p.category || 'multimodal', 50),
+      sanitizeText(p.badge || 'PROVEEDOR VERIFICADO', 50),
+      'GLOBAL KEY',
       1,
-      p.discountPercent || 0,
-      p.originalPriceDisplay || '',
-      p.priceDisplay || '0.00',
-      p.g2aPlusPriceDisplay || '',
-      p.priceDisplay,
-      p.originalPriceDisplay || '',
-      p.priceUnit || '',
-      p.numericPrice || 0,
-      p.numericPrice || 0,
-      p.numericOriginalPrice || 0,
-      p.providerName || 'Proveedor Verificado',
+      Number(p.discountPercent) || 0,
+      sanitizeText(p.originalPriceDisplay || '', 50),
+      sanitizeText(p.priceDisplay || '0.00', 50),
+      sanitizeText(p.g2aPlusPriceDisplay || '', 50),
+      sanitizeText(p.priceDisplay || '0.00', 50),
+      sanitizeText(p.originalPriceDisplay || '', 50),
+      sanitizeText(p.priceUnit || '', 50),
+      Number(p.numericPrice) || 0,
+      Number(p.numericPrice) || 0,
+      Number(p.numericOriginalPrice) || 0,
+      sanitizeText(p.providerName || 'Proveedor Verificado', 100),
       5.0,
       100.0,
       999,
       1,
-      p.headerBg || 'dark-purple',
-      p.iconType || 'zap',
-      p.description || '',
+      'dark-purple',
+      'zap',
+      sanitizeText(p.description || '', 1000),
       JSON.stringify(p.checklist || ['Entrega automatica garantizada', 'Soporte 24/7 oficial', 'Activacion verificada']),
       JSON.stringify(p.modelsIncluded || []),
       JSON.stringify(p.specs || [{ label: 'Proveedor', value: p.providerName || 'API Externa' }, { label: 'Garantia', value: '24 Horas Reposicion' }]),
-      p.idealFor || '',
-      p.activationKeySample || 'ARNO-AUTO-DISPATCH-KEY',
-      p.imageUrl || '',
+      sanitizeText(p.idealFor || '', 300),
+      'ARNO-AUTO-DISPATCH-KEY',
+      sanitizeText(p.imageUrl || '', 500),
       1,
-      p.providerId || 'custom',
-      p.providerName || 'Proveedor Externo',
-      p.providerProductId || p.bunaiProductId || p.id,
-      p.bunaiProductId || p.providerProductId || p.id,
-      p.stock || p.bunaiStock || 99,
-      p.wholesalePriceUSD || 0
+      sanitizeText(p.providerId || 'custom', 50),
+      sanitizeText(p.providerName || 'Proveedor Externo', 100),
+      sanitizeText(p.providerProductId || p.bunaiProductId || p.id, 100),
+      sanitizeText(p.bunaiProductId || p.providerProductId || p.id, 100),
+      Number(p.stock || p.bunaiStock) || 99,
+      Number(p.wholesalePriceUSD) || 0
     ]);
     res.json({ success: true, message: 'Producto sincronizado exitosamente en el catalogo de la tienda', id: p.id });
   } catch (err) {
     console.error('[MultiProvider] Error sincronizando producto:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error sincronizando el producto' });
   }
 });
 
-// Orders Management Endpoints
+// ----------------------------------------------------
+// Orders Management Endpoints (OWASP A01 & A03 Protection)
+// ----------------------------------------------------
+
 // GET /api/orders - List all customer orders
 app.get('/api/orders', async (req, res) => {
   try {
-    const rows = await getAll('SELECT * FROM orders ORDER BY createdAt DESC');
+    const rows = await getAll('SELECT * FROM orders ORDER BY createdAt DESC LIMIT 200');
     const formatted = rows.map((r) => ({
       id: r.id,
       customerName: r.customername || r.customerName,
@@ -946,20 +1071,35 @@ app.get('/api/orders', async (req, res) => {
     }));
     res.json(formatted);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error recuperando los pedidos' });
   }
 });
 
-// POST /api/orders - Create or record an order from store checkout
-app.post('/api/orders', async (req, res) => {
+// POST /api/orders - Create or record an order from store checkout (Rate limited)
+app.post('/api/orders', checkoutLimiter, async (req, res) => {
   const { id, customerName, customerEmail, customerPhone, paymentMethod, totalPEN, items, notes } = req.body;
   if (!id || !items) {
-    res.status(400).json({ error: 'Faltan campos id o items' });
+    res.status(400).json({ error: 'Faltan campos obligatorios id o items' });
     return;
   }
 
+  // Validate and sanitize inputs
+  const cleanId = sanitizeText(id, 64);
+  const cleanName = sanitizeText(customerName || 'Cliente ArnoTienda', 150);
+  const cleanEmail = sanitizeText(customerEmail || '', 150);
+  const cleanPhone = sanitizeText(customerPhone || '', 50);
+  const cleanPaymentMethod = sanitizeText(paymentMethod || 'Yape / Plin', 50);
+  const cleanTotalPEN = Math.max(Number(totalPEN) || 0, 0);
+  const cleanNotes = sanitizeText(notes || 'Orden registrada desde pasarela de compra', 500);
+
   const itemsJson = typeof items === 'string' ? items : JSON.stringify(items);
-  const parsedItems = typeof items === 'string' ? JSON.parse(items) : items;
+  let parsedItems = [];
+  try {
+    parsedItems = typeof items === 'string' ? JSON.parse(items) : items;
+  } catch {
+    res.status(400).json({ error: 'Formato de items inválido' });
+    return;
+  }
 
   const querySql = `
     INSERT INTO orders (id, customerName, customerEmail, customerPhone, paymentMethod, totalPEN, status, fulfillmentStatus, items, notes, createdAt, updatedAt)
@@ -977,14 +1117,14 @@ app.post('/api/orders', async (req, res) => {
 
   try {
     await execute(querySql, [
-      id,
-      customerName || 'Cliente ArnoTienda',
-      customerEmail || '',
-      customerPhone || '',
-      paymentMethod || 'Yape / Plin',
-      totalPEN || 0,
+      cleanId,
+      cleanName,
+      cleanEmail,
+      cleanPhone,
+      cleanPaymentMethod,
+      cleanTotalPEN,
       itemsJson,
-      notes || 'Orden registrada desde pasarela de compra'
+      cleanNotes
     ]);
 
     // Check if any item belongs to an active auto-fulfill provider
@@ -997,7 +1137,7 @@ app.post('/api/orders', async (req, res) => {
             fulfillOrderItemWithProvider(prov, item.providerProductId, item.quantity || 1)
               .then((dispatchRes) => {
                 if (dispatchRes.success && dispatchRes.keys?.length > 0) {
-                  console.log(`[AutoFulfill] Pedido ${id} despachado exitosamente con ${prov.name}`);
+                  console.log(`[AutoFulfill] Pedido ${cleanId} despachado exitosamente con ${prov.name}`);
                 }
               })
               .catch((e) => console.warn('[AutoFulfill] Despacho pendiente de saldo:', e.message));
@@ -1006,26 +1146,29 @@ app.post('/api/orders', async (req, res) => {
       }
     } catch {}
 
-    res.json({ success: true, message: 'Pedido guardado en la base de datos', orderId: id });
+    res.json({ success: true, message: 'Pedido guardado en la base de datos', orderId: cleanId });
   } catch (err) {
     console.error('[Orders] Error guardando pedido:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error guardando el pedido' });
   }
 });
 
-// PATCH /api/orders/:id - Update order status or details
+// PATCH /api/orders/:id - Update order status (OWASP A01: Strict Column Whitelist)
 app.patch('/api/orders/:id', async (req, res) => {
   const { status, fulfillmentStatus, items, notes } = req.body;
-  const orderId = req.params.id;
+  const orderId = sanitizeText(req.params.id, 64);
 
   const updates = [];
   const params = [];
 
-  if (status) {
+  const validStatuses = ['completado', 'pendiente', 'cancelado', 'procesando'];
+  const validFulfillments = ['entregado', 'pendiente', 'error', 'en_proceso'];
+
+  if (status && validStatuses.includes(status)) {
     updates.push('status = ?');
     params.push(status);
   }
-  if (fulfillmentStatus) {
+  if (fulfillmentStatus && validFulfillments.includes(fulfillmentStatus)) {
     updates.push('fulfillmentStatus = ?');
     params.push(fulfillmentStatus);
   }
@@ -1035,11 +1178,11 @@ app.patch('/api/orders/:id', async (req, res) => {
   }
   if (notes !== undefined) {
     updates.push('notes = ?');
-    params.push(notes);
+    params.push(sanitizeText(notes, 500));
   }
 
   if (updates.length === 0) {
-    res.status(400).json({ error: 'No hay campos para actualizar' });
+    res.status(400).json({ error: 'No hay campos válidos para actualizar' });
     return;
   }
 
@@ -1051,13 +1194,13 @@ app.patch('/api/orders/:id', async (req, res) => {
     await execute(querySql, params);
     res.json({ success: true, message: 'Pedido actualizado exitosamente' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error actualizando el pedido' });
   }
 });
 
 // POST /api/orders/:id/dispatch - Manually re-trigger fulfillment with provider API
-app.post('/api/orders/:id/dispatch', async (req, res) => {
-  const orderId = req.params.id;
+app.post('/api/orders/:id/dispatch', checkoutLimiter, async (req, res) => {
+  const orderId = sanitizeText(req.params.id, 64);
   try {
     const order = await getOne('SELECT * FROM orders WHERE id = ?', [orderId]);
     if (!order) {
@@ -1109,7 +1252,7 @@ app.post('/api/orders/:id/dispatch', async (req, res) => {
       });
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error al despachar el pedido' });
   }
 });
 
@@ -1158,7 +1301,7 @@ app.get('/api/store/metrics', async (req, res) => {
       })),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error calculando las métricas de la tienda' });
   }
 });
 
@@ -1172,7 +1315,7 @@ app.get('/api/store/settings', async (req, res) => {
     });
     res.json(settings);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error recuperando configuraciones' });
   }
 });
 
@@ -1187,16 +1330,18 @@ app.post('/api/store/settings', async (req, res) => {
 
   try {
     for (const k of keys) {
-      await execute('INSERT INTO store_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', [k, String(settings[k])]);
+      const cleanKey = sanitizeText(k, 100);
+      const cleanVal = sanitizeText(String(settings[k]), 500);
+      await execute('INSERT INTO store_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', [cleanKey, cleanVal]);
     }
     res.json({ success: true, message: 'Configuración guardada exitosamente' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error guardando configuraciones' });
   }
 });
 
 // Start Server & Connect to PostgreSQL
 app.listen(PORT, async () => {
-  console.log(`Servidor API PostgreSQL corriendo en el puerto ${PORT}`);
+  console.log(`Servidor API PostgreSQL seguro corriendo en el puerto ${PORT}`);
   await initializeDatabase();
 });
