@@ -30,15 +30,34 @@ services:
     restart: always
     networks:
       - coolify
-    volumes:
-      - arnotienda_db:/app/data
+    depends_on:
+      tienda-postgres:
+        condition: service_healthy
     environment:
       - PORT=3008
-      - DB_PATH=/app/data/database.sqlite
+      - DATABASE_URL=postgresql://arno_admin:arno_tienda_secret_pass_2026@arnotienda_postgres:5432/arnotienda
       - BUNAISTORE_API_KEY=Shop::2WR8PHImP8Njh3kHI6twuz2AWF8
 
+  tienda-postgres:
+    image: postgres:16-alpine
+    container_name: arnotienda_postgres
+    restart: always
+    networks:
+      - coolify
+    environment:
+      POSTGRES_DB: arnotienda
+      POSTGRES_USER: arno_admin
+      POSTGRES_PASSWORD: arno_tienda_secret_pass_2026
+    volumes:
+      - arnotienda_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arno_admin -d arnotienda"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
-  arnotienda_db:
+  arnotienda_pgdata:
 
 networks:
   coolify:

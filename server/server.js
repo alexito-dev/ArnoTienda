@@ -1,10 +1,17 @@
 import express from 'express';
 import cors from 'cors';
-import sqlite3 from 'sqlite3';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import { getBunaiProfile, getBunaiProducts, getBunaiProductDetails, createBunaiOrder } from './bunaiStoreService.js';
 import { testProviderConnection, fetchProviderProducts, fulfillOrderItemWithProvider } from './multiProviderService.js';
+import {
+  connectWithRetry,
+  initDatabaseSchemas,
+  query,
+  getOne,
+  getAll,
+  execute,
+} from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,16 +23,6 @@ const PORT = process.env.PORT || 3008;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// Database Connection
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('[SQLite] Error conectando a SQLite:', err.message);
-  } else {
-    console.log('[SQLite] Base de Datos SQLite conectada en:', dbPath);
-  }
-});
 
 // Initial Seed Products
 const INITIAL_SEED = [
@@ -118,45 +115,45 @@ const INITIAL_SEED = [
     isActive: 1,
   },
   {
-    id: 'claude-api-100',
-    name: 'API Plan $100 USD (Claude API)',
+    id: 'claude-pro',
+    name: 'Claude Pro (Cuenta Privada)',
     subtitle: 'Consola Anthropic',
     category: 'dev',
-    badge: 'OFERTA',
+    badge: 'ALTA DEMANDA',
     regionBadge: 'GLOBAL KEY',
     canActivateInCountry: 1,
-    discountPercent: 33,
-    originalPriceDisplay: '15.97',
-    priceDisplay: '10.64',
-    g2aPlusPriceDisplay: '9.50',
-    yearlyPriceDisplay: '10.64',
-    originalYearlyPriceDisplay: '15.97',
-    priceUnit: 'USD / S/ 39.90 PEN',
-    numericPrice: 10.64,
-    numericYearlyPrice: 10.64,
-    numericOriginalPrice: 15.97,
+    discountPercent: 20,
+    originalPriceDisplay: '9.97',
+    priceDisplay: '7.98',
+    g2aPlusPriceDisplay: '6.90',
+    yearlyPriceDisplay: '7.98',
+    originalYearlyPriceDisplay: '9.97',
+    priceUnit: 'USD / S/ 29.90 PEN',
+    numericPrice: 7.98,
+    numericYearlyPrice: 7.98,
+    numericOriginalPrice: 9.97,
     sellerName: 'ArnoAI Official',
-    sellerRating: 5.0,
-    sellerFeedbackPercent: 100.0,
-    sellerSales: 1240,
+    sellerRating: 4.9,
+    sellerFeedbackPercent: 99.9,
+    sellerSales: 2150,
     shieldIncluded: 1,
-    headerBg: 'slate',
-    iconType: 'spark',
-    description: 'Crédito oficial de $100 USD para Anthropic Console API. Ideal para conectar Claude 3.5 Sonnet a tus aplicaciones.',
+    headerBg: 'pink',
+    iconType: 'hexagon',
+    description: 'Acceso exclusivo a Claude 3.5 Sonnet con ventana de contexto de 200k tokens, Projects colaborativos y soporte de código avanzado.',
     checklist: JSON.stringify([
-      '$100 USD de saldo en Anthropic Console API',
-      'Acceso completo a Claude 3.5 Sonnet y Haiku',
-      'Llave API oficial con soporte de Webhooks',
-      'Garantía total de uso en producción',
+      'Cuenta personal privada para Claude Pro',
+      'Acceso prioritario a Claude 3.5 Sonnet',
+      'Proyectos (Projects) y carga masiva de archivos',
+      'Entrega inmediata con credenciales directas',
     ]),
-    modelsIncluded: JSON.stringify(['Claude 3.5 Sonnet', 'Claude 3.5 Haiku', 'Claude 3 Opus']),
+    modelsIncluded: JSON.stringify(['Claude 3.5 Sonnet', 'Claude 3 Opus', 'Claude 3 Haiku']),
     specs: JSON.stringify([
-      { label: 'Saldo API', value: '$100.00 USD' },
-      { label: 'Proveedor', value: 'Anthropic Console' },
-      { label: 'Entrega', value: 'API Key Oficial / Credenciales' },
+      { label: 'Formato', value: 'Correo + Clave Privada' },
+      { label: 'Duración', value: '30 Días Garantizados' },
+      { label: 'Contexto', value: '200K Tokens' },
     ]),
-    idealFor: 'Desarrolladores y startups integrando IA avanzada en sus plataformas.',
-    activationKeySample: 'sk-ant-api03-ARNO-100USD-LIVE-8812',
+    idealFor: 'Desarrolladores de software, investigadores y analistas de datos.',
+    activationKeySample: 'G2A-CLAUDE-PRO-KEY-99412',
     imageUrl: '',
     isActive: 1,
   },
@@ -165,27 +162,27 @@ const INITIAL_SEED = [
     name: 'API Plan $250 USD (Claude API)',
     subtitle: 'Consola Anthropic',
     category: 'dev',
-    badge: 'POPULAR',
+    badge: 'OFERTA API',
     regionBadge: 'GLOBAL KEY',
     canActivateInCountry: 1,
-    discountPercent: 35,
-    originalPriceDisplay: '19.95',
-    priceDisplay: '13.30',
-    g2aPlusPriceDisplay: '11.90',
-    yearlyPriceDisplay: '13.30',
-    originalYearlyPriceDisplay: '19.95',
-    priceUnit: 'USD / S/ 49.90 PEN',
-    numericPrice: 13.30,
-    numericYearlyPrice: 13.30,
-    numericOriginalPrice: 19.95,
+    discountPercent: 40,
+    originalPriceDisplay: '19.98',
+    priceDisplay: '11.97',
+    g2aPlusPriceDisplay: '10.50',
+    yearlyPriceDisplay: '11.97',
+    originalYearlyPriceDisplay: '19.98',
+    priceUnit: 'USD / S/ 44.90 PEN',
+    numericPrice: 11.97,
+    numericYearlyPrice: 11.97,
+    numericOriginalPrice: 19.98,
     sellerName: 'ArnoAI Official',
-    sellerRating: 5.0,
-    sellerFeedbackPercent: 100.0,
-    sellerSales: 1120,
+    sellerRating: 4.9,
+    sellerFeedbackPercent: 99.6,
+    sellerSales: 1450,
     shieldIncluded: 1,
-    headerBg: 'dark-purple',
-    iconType: 'spark',
-    description: 'Crédito oficial de $250 USD para Anthropic Console API. Acceso garantizado por 30 días a Claude 3.5 Sonnet y Opus.',
+    headerBg: 'charcoal',
+    iconType: 'zap',
+    description: 'Saldo oficial de $250 USD para llamadas a la API de Anthropic Console. Ideal para desplegar agentes y pipelines de desarrollo.',
     checklist: JSON.stringify([
       '$250 USD de saldo en Anthropic Console API',
       'Acceso completo a Claude 3.5 Sonnet y Opus',
@@ -248,210 +245,139 @@ const INITIAL_SEED = [
   },
 ];
 
-// Initialize Database Table
-db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS products (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      subtitle TEXT,
-      category TEXT NOT NULL,
-      badge TEXT,
-      regionBadge TEXT,
-      canActivateInCountry INTEGER DEFAULT 1,
-      discountPercent INTEGER DEFAULT 0,
-      originalPriceDisplay TEXT,
-      priceDisplay TEXT NOT NULL,
-      g2aPlusPriceDisplay TEXT,
-      yearlyPriceDisplay TEXT,
-      originalYearlyPriceDisplay TEXT,
-      priceUnit TEXT,
-      numericPrice REAL NOT NULL,
-      numericYearlyPrice REAL NOT NULL,
-      numericOriginalPrice REAL,
-      sellerName TEXT DEFAULT 'ArnoAI Official',
-      sellerRating REAL DEFAULT 4.9,
-      sellerFeedbackPercent REAL DEFAULT 99.8,
-      sellerSales INTEGER DEFAULT 3420,
-      shieldIncluded INTEGER DEFAULT 1,
-      headerBg TEXT DEFAULT 'purple',
-      iconType TEXT DEFAULT 'spark',
-      description TEXT,
-      checklist TEXT,
-      modelsIncluded TEXT,
-      specs TEXT,
-      idealFor TEXT,
-      activationKeySample TEXT,
-      imageUrl TEXT,
-      isActive INTEGER DEFAULT 1,
-      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `, (err) => {
-    if (err) {
-      console.error('[SQLite] Error creando tabla products:', err.message);
-      return;
+// Helper to format PostgreSQL row to Frontend Product object
+const formatRowToProduct = (row) => ({
+  id: row.id,
+  name: row.name,
+  subtitle: row.subtitle,
+  category: row.category,
+  badge: row.badge,
+  regionBadge: row.regionbadge || row.regionBadge,
+  canActivateInCountry: Boolean(row.canactivateincountry ?? row.canActivateInCountry),
+  discountPercent: Number(row.discountpercent ?? row.discountPercent ?? 0),
+  originalPriceDisplay: row.originalpricedisplay || row.originalPriceDisplay,
+  priceDisplay: row.pricedisplay || row.priceDisplay,
+  g2aPlusPriceDisplay: row.g2apluspricedisplay || row.g2aPlusPriceDisplay,
+  yearlyPriceDisplay: row.yearlypricedisplay || row.yearlyPriceDisplay,
+  originalYearlyPriceDisplay: row.originalyearlypricedisplay || row.originalYearlyPriceDisplay,
+  priceUnit: row.priceunit || row.priceUnit,
+  numericPrice: Number(row.numericprice ?? row.numericPrice ?? 0),
+  numericYearlyPrice: Number(row.numericyearlyprice ?? row.numericYearlyPrice ?? 0),
+  numericOriginalPrice: row.numericoriginalprice !== null && row.numericoriginalprice !== undefined ? Number(row.numericoriginalprice) : undefined,
+  sellerName: row.sellername || row.sellerName || 'ArnoAI Official',
+  sellerRating: Number(row.sellerrating ?? row.sellerRating ?? 4.9),
+  sellerFeedbackPercent: Number(row.sellerfeedbackpercent ?? row.sellerFeedbackPercent ?? 99.8),
+  sellerSales: Number(row.sellersales ?? row.sellerSales ?? 3420),
+  shieldIncluded: Boolean(row.shieldincluded ?? row.shieldIncluded),
+  headerBg: row.headerbg || row.headerBg || 'purple',
+  iconType: row.icontype || row.iconType || 'spark',
+  description: row.description,
+  checklist: typeof row.checklist === 'string' ? JSON.parse(row.checklist) : (row.checklist || []),
+  modelsIncluded: typeof row.modelsincluded === 'string' ? JSON.parse(row.modelsincluded) : (row.modelsIncluded || []),
+  specs: typeof row.specs === 'string' ? JSON.parse(row.specs) : (row.specs || []),
+  idealFor: row.idealfor || row.idealFor,
+  activationKeySample: row.activationkeysample || row.activationKeySample,
+  imageUrl: row.imageurl || row.imageUrl,
+  isActive: Boolean(row.isactive ?? row.isActive),
+  bunaiProductId: row.bunaiproductid || row.bunaiProductId || undefined,
+  bunaiStock: row.bunaistock !== undefined ? Number(row.bunaistock) : undefined,
+  wholesalePriceUSD: row.wholesalepriceusd !== undefined ? Number(row.wholesalepriceusd) : undefined,
+  providerId: row.providerid || row.providerId || (row.bunaiproductid ? 'bunaistore' : 'local'),
+  providerName: row.providername || row.providerName || (row.bunaiproductid ? 'BunaiStore' : 'ArnoAI Direct'),
+  providerProductId: row.providerproductid || row.providerProductId || row.bunaiproductid || undefined,
+  updatedAt: row.updatedat || row.updatedAt,
+});
+
+// Database Initialization & Seeding Routine
+async function initializeDatabase() {
+  try {
+    await connectWithRetry(12, 2500);
+    await initDatabaseSchemas();
+
+    // Check & Seed Providers
+    const provCountRow = await getOne('SELECT COUNT(*) as count FROM providers');
+    const provCount = parseInt(provCountRow?.count || 0, 10);
+    if (provCount === 0) {
+      console.log('[PostgreSQL] Inicializando proveedores por defecto...');
+      const defaultProviders = [
+        [
+          'bunaistore',
+          'BunaiStore Wholesale',
+          'bunaistore',
+          'https://api.bunaistore.shop/v1',
+          process.env.BUNAISTORE_API_KEY || 'Shop::2WR8PHImP8Njh3kHI6twuz2AWF8',
+          '',
+          'X-API-Key',
+          'me',
+          0.099,
+          'active',
+          1,
+          3.5,
+          'Proveedor principal de licencias IA y suscripciones digitales'
+        ],
+        [
+          'g2a',
+          'G2A Direct Business API',
+          'g2a',
+          'https://api.g2a.com/v1',
+          '',
+          '',
+          'Authorization',
+          'status',
+          0.0,
+          'inactive',
+          0,
+          2.5,
+          'Catálogo global de software y claves oficiales'
+        ],
+        [
+          'kinguin',
+          'Kinguin Reseller Gateway',
+          'kinguin',
+          'https://gateway.kinguin.net/esa/api/v1',
+          '',
+          '',
+          'X-Api-Key',
+          'products',
+          0.0,
+          'inactive',
+          0,
+          2.5,
+          'Distribuidor europeo de licencias'
+        ],
+        [
+          'custom_api',
+          'API Mayorista Externa',
+          'custom',
+          'https://api.example.com/v1',
+          '',
+          '',
+          'Authorization',
+          'health',
+          0.0,
+          'inactive',
+          1,
+          3.0,
+          'Conector genérico REST para proveedores adicionales'
+        ]
+      ];
+
+      for (const prov of defaultProviders) {
+        await execute(`
+          INSERT INTO providers (id, name, type, apiBaseUrl, apiKey, apiSecret, authHeaderName, pingEndpoint, balanceUSD, status, autoFulfill, marginMultiplier, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO NOTHING
+        `, prov);
+      }
     }
 
-    // Safely add provider columns if they do not exist
-    db.run('ALTER TABLE products ADD COLUMN bunaiProductId TEXT', () => {});
-    db.run('ALTER TABLE products ADD COLUMN bunaiStock INTEGER DEFAULT 0', () => {});
-    db.run('ALTER TABLE products ADD COLUMN wholesalePriceUSD REAL DEFAULT 0', () => {});
-    db.run("ALTER TABLE products ADD COLUMN providerId TEXT DEFAULT 'bunaistore'", () => {});
-    db.run("ALTER TABLE products ADD COLUMN providerName TEXT DEFAULT 'BunaiStore'", () => {});
-    db.run('ALTER TABLE products ADD COLUMN providerProductId TEXT', () => {});
-
-    // Create Multi-Providers Table
-    db.run(`
-      CREATE TABLE IF NOT EXISTS providers (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        type TEXT DEFAULT 'custom',
-        apiBaseUrl TEXT NOT NULL,
-        apiKey TEXT,
-        apiSecret TEXT,
-        authHeaderName TEXT DEFAULT 'X-API-Key',
-        pingEndpoint TEXT,
-        balanceUSD REAL DEFAULT 0.0,
-        status TEXT DEFAULT 'active',
-        autoFulfill INTEGER DEFAULT 1,
-        marginMultiplier REAL DEFAULT 3.0,
-        notes TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `, () => {
-      // Seed default providers if empty
-      db.get('SELECT COUNT(*) as count FROM providers', (err, row) => {
-        if (!err && row && row.count === 0) {
-          const stmt = db.prepare(`
-            INSERT INTO providers (id, name, type, apiBaseUrl, apiKey, authHeaderName, pingEndpoint, balanceUSD, status, autoFulfill, marginMultiplier, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `);
-          stmt.run([
-            'bunaistore',
-            'BunaiStore Wholesale',
-            'bunaistore',
-            'https://api.bunaistore.shop/v1',
-            process.env.BUNAISTORE_API_KEY || 'Shop::2WR8PHImP8Njh3kHI6twuz2AWF8',
-            'X-API-Key',
-            'me',
-            0.099,
-            'active',
-            1,
-            3.5,
-            'Proveedor principal de licencias IA y suscripciones digitales'
-          ]);
-          stmt.run([
-            'g2a',
-            'G2A Direct Business API',
-            'g2a',
-            'https://api.g2a.com/v1',
-            '',
-            'Authorization',
-            'status',
-            0.0,
-            'inactive',
-            0,
-            2.5,
-            'Catálogo global de software y claves oficiales'
-          ]);
-          stmt.run([
-            'kinguin',
-            'Kinguin Reseller Gateway',
-            'kinguin',
-            'https://gateway.kinguin.net/esa/api/v1',
-            '',
-            'X-Api-Key',
-            'products',
-            0.0,
-            'inactive',
-            0,
-            2.5,
-            'Distribuidor europeo de licencias'
-          ]);
-          stmt.run([
-            'custom_api',
-            'API Mayorista Externa',
-            'custom',
-            'https://api.example.com/v1',
-            '',
-            'Authorization',
-            'health',
-            0.0,
-            'inactive',
-            1,
-            3.0,
-            'Conector genérico REST para proveedores adicionales'
-          ]);
-          stmt.finalize();
-        }
-      });
-    });
-
-    // Create Orders Table
-    db.run(`
-      CREATE TABLE IF NOT EXISTS orders (
-        id TEXT PRIMARY KEY,
-        customerName TEXT,
-        customerEmail TEXT,
-        customerPhone TEXT,
-        paymentMethod TEXT,
-        totalPEN REAL NOT NULL,
-        status TEXT DEFAULT 'completado',
-        fulfillmentStatus TEXT DEFAULT 'entregado',
-        items TEXT,
-        notes TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `, () => {
-      // Seed sample orders if empty
-      db.get('SELECT COUNT(*) as count FROM orders', (err, row) => {
-        if (!err && row && row.count === 0) {
-          const sampleItems1 = JSON.stringify([{
-            productId: 'bunai-54268daa',
-            productName: 'Claude API $500 Saldo Anthropic',
-            quantity: 1,
-            pricePEN: 49.90,
-            activationKey: 'sk-ant-api03-ARNO-500USD-LIVE-8812',
-            providerId: 'bunaistore',
-            providerStatus: 'entregado'
-          }]);
-          const sampleItems2 = JSON.stringify([{
-            productId: 'bunai-aec43957',
-            productName: 'Microsoft Office 365 (Plan Lifetime)',
-            quantity: 1,
-            pricePEN: 24.90,
-            activationKey: 'OFFICE-365-ARNO-ORG-9921',
-            providerId: 'bunaistore',
-            providerStatus: 'entregado'
-          }]);
-          db.run(`INSERT INTO orders (id, customerName, customerEmail, customerPhone, paymentMethod, totalPEN, status, fulfillmentStatus, items, notes)
-                  VALUES ('ORD-771291', 'Alex C.', 'contacto@arno.services', '+51 987654321', 'Yape / Plin', 49.90, 'completado', 'entregado', ?, 'Entrega automática exitosa')`, [sampleItems1]);
-          db.run(`INSERT INTO orders (id, customerName, customerEmail, customerPhone, paymentMethod, totalPEN, status, fulfillmentStatus, items, notes)
-                  VALUES ('ORD-771292', 'Carlos M.', 'carlos@empresa.pe', '+51 912345678', 'Arno Wallet', 24.90, 'completado', 'entregado', ?, 'Licencia activada')`, [sampleItems2]);
-        }
-      });
-    });
-
-    // Create Store Settings Table
-    db.run(`
-      CREATE TABLE IF NOT EXISTS store_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      )
-    `, () => {
-      db.run(`INSERT OR IGNORE INTO store_settings (key, value) VALUES ('exchangeRatePEN', '3.75')`);
-      db.run(`INSERT OR IGNORE INTO store_settings (key, value) VALUES ('storeName', 'ArnoTienda')`);
-      db.run(`INSERT OR IGNORE INTO store_settings (key, value) VALUES ('defaultMarginMultiplier', '3.0')`);
-      db.run(`INSERT OR IGNORE INTO store_settings (key, value) VALUES ('autoFulfill', '1')`);
-    });
-
-    // Seed database if empty
-    db.get('SELECT COUNT(*) as count FROM products', (err, row) => {
-      if (!err && row && row.count === 0) {
-        console.log('[SQLite] Poblando base de datos SQLite con productos iniciales...');
-        const stmt = db.prepare(`
+    // Check & Seed Initial Products
+    const prodCountRow = await getOne('SELECT COUNT(*) as count FROM products');
+    const prodCount = parseInt(prodCountRow?.count || 0, 10);
+    if (prodCount === 0) {
+      console.log('[PostgreSQL] Poblando base de datos con catálogo inicial...');
+      for (const p of INITIAL_SEED) {
+        await execute(`
           INSERT INTO products (
             id, name, subtitle, category, badge, regionBadge, canActivateInCountry,
             discountPercent, originalPriceDisplay, priceDisplay, g2aPlusPriceDisplay,
@@ -460,65 +386,82 @@ db.serialize(() => {
             sellerFeedbackPercent, sellerSales, shieldIncluded, headerBg, iconType,
             description, checklist, modelsIncluded, specs, idealFor, activationKeySample, imageUrl, isActive
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        INITIAL_SEED.forEach((p) => {
-          stmt.run([
-            p.id, p.name, p.subtitle, p.category, p.badge, p.regionBadge, p.canActivateInCountry,
-            p.discountPercent, p.originalPriceDisplay, p.priceDisplay, p.g2aPlusPriceDisplay,
-            p.yearlyPriceDisplay, p.originalYearlyPriceDisplay, p.priceUnit, p.numericPrice,
-            p.numericYearlyPrice, p.numericOriginalPrice, p.sellerName, p.sellerRating,
-            p.sellerFeedbackPercent, p.sellerSales, p.shieldIncluded, p.headerBg, p.iconType,
-            p.description, p.checklist, p.modelsIncluded, p.specs, p.idealFor, p.activationKeySample, p.imageUrl, p.isActive
-          ]);
-        });
-
-        stmt.finalize(() => {
-          console.log('[SQLite] Base de datos poblada exitosamente.');
-        });
+          ON CONFLICT(id) DO NOTHING
+        `, [
+          p.id, p.name, p.subtitle, p.category, p.badge, p.regionBadge, p.canActivateInCountry,
+          p.discountPercent, p.originalPriceDisplay, p.priceDisplay, p.g2aPlusPriceDisplay,
+          p.yearlyPriceDisplay, p.originalYearlyPriceDisplay, p.priceUnit, p.numericPrice,
+          p.numericYearlyPrice, p.numericOriginalPrice, p.sellerName, p.sellerRating,
+          p.sellerFeedbackPercent, p.sellerSales, p.shieldIncluded, p.headerBg, p.iconType,
+          p.description, p.checklist, p.modelsIncluded, p.specs, p.idealFor, p.activationKeySample, p.imageUrl, p.isActive
+        ]);
       }
-    });
-  });
-});
-
-// Helper to format DB row to Product object
-const formatRowToProduct = (row) => ({
-  ...row,
-  canActivateInCountry: Boolean(row.canActivateInCountry),
-  shieldIncluded: Boolean(row.shieldIncluded),
-  isActive: Boolean(row.isActive),
-  checklist: row.checklist ? JSON.parse(row.checklist) : [],
-  modelsIncluded: row.modelsIncluded ? JSON.parse(row.modelsIncluded) : [],
-  specs: row.specs ? JSON.parse(row.specs) : [],
-  bunaiProductId: row.bunaiProductId || undefined,
-  bunaiStock: row.bunaiStock !== undefined ? row.bunaiStock : undefined,
-  wholesalePriceUSD: row.wholesalePriceUSD !== undefined ? row.wholesalePriceUSD : undefined,
-  providerId: row.providerId || (row.bunaiProductId ? 'bunaistore' : 'local'),
-  providerName: row.providerName || (row.bunaiProductId ? 'BunaiStore' : 'ArnoAI Direct'),
-  providerProductId: row.providerProductId || row.bunaiProductId || undefined,
-});
-
-// GET /api/products - Get all products from SQLite DB
-app.get('/api/products', (req, res) => {
-  db.all('SELECT * FROM products ORDER BY updatedAt DESC', [], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
     }
-    const products = rows.map(formatRowToProduct);
-    res.json(products);
-  });
+
+    // Check & Seed Store Settings
+    const defaultSettings = [
+      ['exchangeRatePEN', '3.75'],
+      ['storeName', 'ArnoTienda'],
+      ['defaultMarginMultiplier', '3.0'],
+      ['autoFulfill', '1']
+    ];
+    for (const [key, val] of defaultSettings) {
+      await execute(`
+        INSERT INTO store_settings (key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO NOTHING
+      `, [key, val]);
+    }
+
+    // Check & Seed Sample Orders if empty
+    const orderCountRow = await getOne('SELECT COUNT(*) as count FROM orders');
+    const orderCount = parseInt(orderCountRow?.count || 0, 10);
+    if (orderCount === 0) {
+      const sampleItems1 = JSON.stringify([{
+        productId: 'claude-api-500',
+        productName: 'API Plan $500 USD (Claude API)',
+        quantity: 1,
+        pricePEN: 64.90,
+        activationKey: 'sk-ant-api03-ARNO-500USD-LIVE-8812',
+        providerId: 'bunaistore',
+        providerStatus: 'entregado'
+      }]);
+      await execute(`
+        INSERT INTO orders (id, customerName, customerEmail, customerPhone, paymentMethod, totalPEN, status, fulfillmentStatus, items, notes)
+        VALUES (?, ?, ?, ?, ?, ?, 'completado', 'entregado', ?, ?)
+        ON CONFLICT(id) DO NOTHING
+      `, ['ORD-771291', 'Alex C.', 'contacto@arno.services', '+51 987654321', 'Yape / Plin', 64.90, sampleItems1, 'Entrega automática exitosa']);
+    }
+
+    console.log('[PostgreSQL] Inicialización de base de datos completada.');
+  } catch (err) {
+    console.error('[PostgreSQL] Error crítico inicializando base de datos:', err.message);
+  }
+}
+
+// ----------------------------------------------------
+// API Routes
+// ----------------------------------------------------
+
+// GET /api/products - Get all products from PostgreSQL DB
+app.get('/api/products', async (req, res) => {
+  try {
+    const rows = await getAll('SELECT * FROM products ORDER BY updatedAt DESC');
+    res.json(rows.map(formatRowToProduct));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// POST /api/products - Insert or Update product in SQLite DB
-app.post('/api/products', (req, res) => {
+// POST /api/products - Insert or Update product in PostgreSQL DB
+app.post('/api/products', async (req, res) => {
   const p = req.body;
   if (!p.id || !p.name) {
     res.status(400).json({ error: 'Faltan campos obligatorios id y name' });
     return;
   }
 
-  const query = `
+  const querySql = `
     INSERT INTO products (
       id, name, subtitle, category, badge, regionBadge, canActivateInCountry,
       discountPercent, originalPriceDisplay, priceDisplay, g2aPlusPriceDisplay,
@@ -556,60 +499,53 @@ app.post('/api/products', (req, res) => {
       updatedAt=CURRENT_TIMESTAMP
   `;
 
-  db.run(query, [
-    p.id, p.name, p.subtitle || 'Licencia Digital', p.category || 'multimodal', p.badge || 'OFERTA',
-    p.regionBadge || 'GLOBAL KEY', p.canActivateInCountry ? 1 : 0, p.discountPercent || 0,
-    p.originalPriceDisplay || '', p.priceDisplay || '0.00', p.g2aPlusPriceDisplay || '',
-    p.yearlyPriceDisplay || p.priceDisplay, p.originalYearlyPriceDisplay || p.originalPriceDisplay,
-    p.priceUnit || '', p.numericPrice || 0, p.numericYearlyPrice || p.numericPrice || 0,
-    p.numericOriginalPrice || 0, p.sellerName || 'ArnoAI Official', p.sellerRating || 4.9,
-    p.sellerFeedbackPercent || 99.8, p.sellerSales || 3420, p.shieldIncluded ? 1 : 0,
-    p.headerBg || 'purple', p.iconType || 'spark', p.description || '',
-    JSON.stringify(p.checklist || []), JSON.stringify(p.modelsIncluded || []),
-    JSON.stringify(p.specs || []), p.idealFor || '', p.activationKeySample || '',
-    p.imageUrl || '', p.isActive !== false ? 1 : 0
-  ], function(err) {
-    if (err) {
-      console.error('[SQLite] Error guardando producto en SQLite:', err.message);
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    res.json({ success: true, message: 'Producto guardado en SQLite', id: p.id });
-  });
+  try {
+    await execute(querySql, [
+      p.id, p.name, p.subtitle || 'Licencia Digital', p.category || 'multimodal', p.badge || 'OFERTA',
+      p.regionBadge || 'GLOBAL KEY', p.canActivateInCountry ? 1 : 0, p.discountPercent || 0,
+      p.originalPriceDisplay || '', p.priceDisplay || '0.00', p.g2aPlusPriceDisplay || '',
+      p.yearlyPriceDisplay || p.priceDisplay, p.originalYearlyPriceDisplay || p.originalPriceDisplay,
+      p.priceUnit || '', p.numericPrice || 0, p.numericYearlyPrice || p.numericPrice || 0,
+      p.numericOriginalPrice || 0, p.sellerName || 'ArnoAI Official', p.sellerRating || 4.9,
+      p.sellerFeedbackPercent || 99.8, p.sellerSales || 3420, p.shieldIncluded ? 1 : 0,
+      p.headerBg || 'purple', p.iconType || 'spark', p.description || '',
+      JSON.stringify(p.checklist || []), JSON.stringify(p.modelsIncluded || []),
+      JSON.stringify(p.specs || []), p.idealFor || '', p.activationKeySample || '',
+      p.imageUrl || '', p.isActive !== false ? 1 : 0
+    ]);
+    res.json({ success: true, message: 'Producto guardado en PostgreSQL', id: p.id });
+  } catch (err) {
+    console.error('[PostgreSQL] Error guardando producto:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// DELETE /api/products/:id - Delete product from SQLite DB
-app.delete('/api/products/:id', (req, res) => {
+// DELETE /api/products/:id - Delete product from PostgreSQL DB
+app.delete('/api/products/:id', async (req, res) => {
   const id = req.params.id;
-  db.run('DELETE FROM products WHERE id = ?', [id], function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    res.json({ success: true, message: 'Producto eliminado de SQLite' });
-  });
+  try {
+    await execute('DELETE FROM products WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Producto eliminado de PostgreSQL' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// POST /api/products/reset - Reset SQLite DB to initial seed
-app.post('/api/products/reset', (req, res) => {
-  db.run('DELETE FROM products', [], (err) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    const stmt = db.prepare(`
-      INSERT INTO products (
-        id, name, subtitle, category, badge, regionBadge, canActivateInCountry,
-        discountPercent, originalPriceDisplay, priceDisplay, g2aPlusPriceDisplay,
-        yearlyPriceDisplay, originalYearlyPriceDisplay, priceUnit, numericPrice,
-        numericYearlyPrice, numericOriginalPrice, sellerName, sellerRating,
-        sellerFeedbackPercent, sellerSales, shieldIncluded, headerBg, iconType,
-        description, checklist, modelsIncluded, specs, idealFor, activationKeySample, imageUrl, isActive
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    INITIAL_SEED.forEach((p) => {
-      stmt.run([
+// POST /api/products/reset - Reset PostgreSQL DB to initial seed
+app.post('/api/products/reset', async (req, res) => {
+  try {
+    await execute('DELETE FROM products');
+    for (const p of INITIAL_SEED) {
+      await execute(`
+        INSERT INTO products (
+          id, name, subtitle, category, badge, regionBadge, canActivateInCountry,
+          discountPercent, originalPriceDisplay, priceDisplay, g2aPlusPriceDisplay,
+          yearlyPriceDisplay, originalYearlyPriceDisplay, priceUnit, numericPrice,
+          numericYearlyPrice, numericOriginalPrice, sellerName, sellerRating,
+          sellerFeedbackPercent, sellerSales, shieldIncluded, headerBg, iconType,
+          description, checklist, modelsIncluded, specs, idealFor, activationKeySample, imageUrl, isActive
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
         p.id, p.name, p.subtitle, p.category, p.badge, p.regionBadge, p.canActivateInCountry,
         p.discountPercent, p.originalPriceDisplay, p.priceDisplay, p.g2aPlusPriceDisplay,
         p.yearlyPriceDisplay, p.originalYearlyPriceDisplay, p.priceUnit, p.numericPrice,
@@ -617,12 +553,11 @@ app.post('/api/products/reset', (req, res) => {
         p.sellerFeedbackPercent, p.sellerSales, p.shieldIncluded, p.headerBg, p.iconType,
         p.description, p.checklist, p.modelsIncluded, p.specs, p.idealFor, p.activationKeySample, p.imageUrl, p.isActive
       ]);
-    });
-
-    stmt.finalize(() => {
-      res.json({ success: true, message: 'Base de datos SQLite restablecida' });
-    });
-  });
+    }
+    res.json({ success: true, message: 'Base de datos PostgreSQL restablecida' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/bunaistore/profile - BunaiStore account & balance
@@ -656,15 +591,15 @@ app.get('/api/bunaistore/product/:id', async (req, res) => {
   }
 });
 
-// POST /api/bunaistore/sync - Sync a BunaiStore product into SQLite store products
-app.post('/api/bunaistore/sync', (req, res) => {
+// POST /api/bunaistore/sync - Sync a BunaiStore product into store products
+app.post('/api/bunaistore/sync', async (req, res) => {
   const p = req.body;
   if (!p.id || !p.name) {
     res.status(400).json({ error: 'Faltan campos id o name' });
     return;
   }
 
-  const query = `
+  const querySql = `
     INSERT INTO products (
       id, name, subtitle, category, badge, regionBadge, canActivateInCountry,
       discountPercent, originalPriceDisplay, priceDisplay, g2aPlusPriceDisplay,
@@ -695,29 +630,28 @@ app.post('/api/bunaistore/sync', (req, res) => {
       updatedAt=CURRENT_TIMESTAMP
   `;
 
-  db.run(query, [
-    p.id, p.name, p.subtitle || 'Entrega Inmediata API', p.category || 'multimodal', p.badge || 'BUNAISTORE',
-    p.regionBadge || 'GLOBAL KEY', 1, p.discountPercent || 0,
-    p.originalPriceDisplay || '', p.priceDisplay || '0.00', p.g2aPlusPriceDisplay || '',
-    p.priceDisplay, p.originalPriceDisplay || '',
-    p.priceUnit || '', p.numericPrice || 0, p.numericPrice || 0,
-    p.numericOriginalPrice || 0, 'BunaiStore Verified', 5.0,
-    100.0, 999, 1,
-    p.headerBg || 'dark-purple', p.iconType || 'zap', p.description || '',
-    JSON.stringify(p.checklist || ['Entrega inmediata garantizada', 'Soporte 24/7', 'Clave o cuenta oficial']),
-    JSON.stringify(p.modelsIncluded || []),
-    JSON.stringify(p.specs || [{ label: 'Proveedor', value: 'BunaiStore API' }, { label: 'Garantía', value: `${p.warrantyHours || 24} Horas` }]),
-    p.idealFor || '', p.activationKeySample || 'BUNAI-AUTO-DELIVERY',
-    p.imageUrl || '', 1,
-    p.bunaiProductId || p.id, p.bunaiStock || 0, p.wholesalePriceUSD || 0
-  ], function(err) {
-    if (err) {
-      console.error('[BunaiStore] Error sincronizando producto BunaiStore:', err.message);
-      res.status(500).json({ error: err.message });
-      return;
-    }
+  try {
+    await execute(querySql, [
+      p.id, p.name, p.subtitle || 'Entrega Inmediata API', p.category || 'multimodal', p.badge || 'BUNAISTORE',
+      p.regionBadge || 'GLOBAL KEY', 1, p.discountPercent || 0,
+      p.originalPriceDisplay || '', p.priceDisplay || '0.00', p.g2aPlusPriceDisplay || '',
+      p.priceDisplay, p.originalPriceDisplay || '',
+      p.priceUnit || '', p.numericPrice || 0, p.numericPrice || 0,
+      p.numericOriginalPrice || 0, 'BunaiStore Verified', 5.0,
+      100.0, 999, 1,
+      p.headerBg || 'dark-purple', p.iconType || 'zap', p.description || '',
+      JSON.stringify(p.checklist || ['Entrega inmediata garantizada', 'Soporte 24/7', 'Clave o cuenta oficial']),
+      JSON.stringify(p.modelsIncluded || []),
+      JSON.stringify(p.specs || [{ label: 'Proveedor', value: 'BunaiStore API' }, { label: 'Garantía', value: `${p.warrantyHours || 24} Horas` }]),
+      p.idealFor || '', p.activationKeySample || 'BUNAI-AUTO-DELIVERY',
+      p.imageUrl || '', 1,
+      p.bunaiProductId || p.id, p.bunaiStock || 0, p.wholesalePriceUSD || 0
+    ]);
     res.json({ success: true, message: 'Producto BunaiStore sincronizado exitosamente en la tienda', id: p.id });
-  });
+  } catch (err) {
+    console.error('[BunaiStore] Error sincronizando producto BunaiStore:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/bunaistore/order - Create BunaiStore order
@@ -737,39 +671,47 @@ app.post('/api/bunaistore/order', async (req, res) => {
 
 // Multi-Providers API Routes
 // GET /api/providers - List all providers
-app.get('/api/providers', (req, res) => {
-  db.all('SELECT * FROM providers ORDER BY createdAt ASC', [], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-
-    // Attach product count for each provider
-    db.all('SELECT providerId, COUNT(*) as count FROM products GROUP BY providerId', [], (err2, countRows) => {
-      const countMap = {};
-      (countRows || []).forEach((c) => {
-        countMap[c.providerId] = c.count;
-      });
-
-      const formatted = rows.map((r) => ({
-        ...r,
-        autoFulfill: Boolean(r.autoFulfill),
-        productCount: countMap[r.id] || (r.id === 'bunaistore' ? countMap['bunaistore'] || 14 : 0),
-      }));
-      res.json(formatted);
+app.get('/api/providers', async (req, res) => {
+  try {
+    const rows = await getAll('SELECT * FROM providers ORDER BY createdAt ASC');
+    const countRows = await getAll('SELECT providerId, COUNT(*) as count FROM products GROUP BY providerId');
+    const countMap = {};
+    (countRows || []).forEach((c) => {
+      const pid = c.providerid || c.providerId;
+      countMap[pid] = parseInt(c.count, 10);
     });
-  });
+
+    const formatted = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      apiBaseUrl: r.apibaseurl || r.apiBaseUrl,
+      apiKey: r.apikey || r.apiKey,
+      apiSecret: r.apisecret || r.apiSecret,
+      authHeaderName: r.authheadername || r.authHeaderName,
+      pingEndpoint: r.pingendpoint || r.pingEndpoint,
+      balanceUSD: Number(r.balanceusd ?? r.balanceUSD ?? 0),
+      status: r.status,
+      autoFulfill: Boolean(r.autofulfill ?? r.autoFulfill),
+      marginMultiplier: Number(r.marginmultiplier ?? r.marginMultiplier ?? 3.0),
+      notes: r.notes,
+      productCount: countMap[r.id] || (r.id === 'bunaistore' ? countMap['bunaistore'] || 14 : 0),
+    }));
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/providers - Create or Update a provider
-app.post('/api/providers', (req, res) => {
+app.post('/api/providers', async (req, res) => {
   const p = req.body;
   if (!p.id || !p.name || !p.apiBaseUrl) {
     res.status(400).json({ error: 'Faltan campos obligatorios: id, name o apiBaseUrl' });
     return;
   }
 
-  const query = `
+  const querySql = `
     INSERT INTO providers (id, name, type, apiBaseUrl, apiKey, apiSecret, authHeaderName, pingEndpoint, balanceUSD, status, autoFulfill, marginMultiplier, notes, updatedAt)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(id) DO UPDATE SET
@@ -788,94 +730,120 @@ app.post('/api/providers', (req, res) => {
       updatedAt=CURRENT_TIMESTAMP
   `;
 
-  db.run(query, [
-    p.id,
-    p.name,
-    p.type || 'custom',
-    p.apiBaseUrl,
-    p.apiKey || '',
-    p.apiSecret || '',
-    p.authHeaderName || 'X-API-Key',
-    p.pingEndpoint || '',
-    p.balanceUSD || 0,
-    p.status || 'active',
-    p.autoFulfill ? 1 : 0,
-    p.marginMultiplier || 3.0,
-    p.notes || ''
-  ], function(err) {
-    if (err) {
-      console.error('[MultiProvider] Error guardando proveedor:', err.message);
-      res.status(500).json({ error: err.message });
-      return;
-    }
+  try {
+    await execute(querySql, [
+      p.id,
+      p.name,
+      p.type || 'custom',
+      p.apiBaseUrl,
+      p.apiKey || '',
+      p.apiSecret || '',
+      p.authHeaderName || 'X-API-Key',
+      p.pingEndpoint || '',
+      p.balanceUSD || 0,
+      p.status || 'active',
+      p.autoFulfill ? 1 : 0,
+      p.marginMultiplier || 3.0,
+      p.notes || ''
+    ]);
     res.json({ success: true, message: 'Proveedor configurado exitosamente', id: p.id });
-  });
+  } catch (err) {
+    console.error('[MultiProvider] Error guardando proveedor:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // DELETE /api/providers/:id - Delete a provider
-app.delete('/api/providers/:id', (req, res) => {
+app.delete('/api/providers/:id', async (req, res) => {
   const id = req.params.id;
-  db.run('DELETE FROM providers WHERE id = ?', [id], function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+  try {
+    await execute('DELETE FROM providers WHERE id = ?', [id]);
     res.json({ success: true, message: 'Proveedor eliminado' });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/providers/:id/test - Test connection & live balance
 app.post('/api/providers/:id/test', async (req, res) => {
   const id = req.params.id;
-  db.get('SELECT * FROM providers WHERE id = ?', [id], async (err, row) => {
-    if (err || !row) {
+  try {
+    const row = await getOne('SELECT * FROM providers WHERE id = ?', [id]);
+    if (!row) {
       res.status(404).json({ error: 'Proveedor no encontrado' });
       return;
     }
 
-    const testResult = await testProviderConnection(row);
+    const providerObj = {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      apiBaseUrl: row.apibaseurl || row.apiBaseUrl,
+      apiKey: row.apikey || row.apiKey,
+      apiSecret: row.apisecret || row.apiSecret,
+      authHeaderName: row.authheadername || row.authHeaderName,
+      pingEndpoint: row.pingendpoint || row.pingEndpoint,
+      balanceUSD: Number(row.balanceusd ?? row.balanceUSD ?? 0),
+    };
+
+    const testResult = await testProviderConnection(providerObj);
     if (testResult.success) {
-      const balance = testResult.balanceUSD !== undefined ? testResult.balanceUSD : row.balanceUSD;
-      db.run('UPDATE providers SET balanceUSD = ?, status = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [
+      const balance = testResult.balanceUSD !== undefined ? testResult.balanceUSD : providerObj.balanceUSD;
+      await execute('UPDATE providers SET balanceUSD = ?, status = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [
         balance,
         'active',
         id,
       ]);
     } else {
-      db.run('UPDATE providers SET status = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [
+      await execute('UPDATE providers SET status = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [
         'error',
         id,
       ]);
     }
-
     res.json(testResult);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/providers/:id/products - Fetch live catalog from a provider
 app.get('/api/providers/:id/products', async (req, res) => {
   const id = req.params.id;
-  db.get('SELECT * FROM providers WHERE id = ?', [id], async (err, row) => {
-    if (err || !row) {
+  try {
+    const row = await getOne('SELECT * FROM providers WHERE id = ?', [id]);
+    if (!row) {
       res.status(404).json({ error: 'Proveedor no encontrado' });
       return;
     }
 
+    const providerObj = {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      apiBaseUrl: row.apibaseurl || row.apiBaseUrl,
+      apiKey: row.apikey || row.apiKey,
+      apiSecret: row.apisecret || row.apiSecret,
+      authHeaderName: row.authheadername || row.authHeaderName,
+      pingEndpoint: row.pingendpoint || row.pingEndpoint,
+    };
+
     const limit = parseInt(req.query.limit, 10) || 100;
-    const prods = await fetchProviderProducts(row, limit);
+    const prods = await fetchProviderProducts(providerObj, limit);
     res.json(prods);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/providers/sync-product - Universal product sync from any provider
-app.post('/api/providers/sync-product', (req, res) => {
+app.post('/api/providers/sync-product', async (req, res) => {
   const p = req.body;
   if (!p.id || !p.name) {
     res.status(400).json({ error: 'Faltan campos id o name' });
     return;
   }
 
-  const query = `
+  const querySql = `
     INSERT INTO products (
       id, name, subtitle, category, badge, regionBadge, canActivateInCountry,
       discountPercent, originalPriceDisplay, priceDisplay, g2aPlusPriceDisplay,
@@ -909,73 +877,81 @@ app.post('/api/providers/sync-product', (req, res) => {
       updatedAt=CURRENT_TIMESTAMP
   `;
 
-  db.run(query, [
-    p.id,
-    p.name,
-    p.subtitle || 'Licencia Digital Oficial',
-    p.category || 'multimodal',
-    p.badge || 'PROVEEDOR VERIFICADO',
-    p.regionBadge || 'GLOBAL KEY',
-    1,
-    p.discountPercent || 0,
-    p.originalPriceDisplay || '',
-    p.priceDisplay || '0.00',
-    p.g2aPlusPriceDisplay || '',
-    p.priceDisplay,
-    p.originalPriceDisplay || '',
-    p.priceUnit || '',
-    p.numericPrice || 0,
-    p.numericPrice || 0,
-    p.numericOriginalPrice || 0,
-    p.providerName || 'Proveedor Verificado',
-    5.0,
-    100.0,
-    999,
-    1,
-    p.headerBg || 'dark-purple',
-    p.iconType || 'zap',
-    p.description || '',
-    JSON.stringify(p.checklist || ['Entrega automatica garantizada', 'Soporte 24/7 oficial', 'Activacion verificada']),
-    JSON.stringify(p.modelsIncluded || []),
-    JSON.stringify(p.specs || [{ label: 'Proveedor', value: p.providerName || 'API Externa' }, { label: 'Garantia', value: '24 Horas Reposicion' }]),
-    p.idealFor || '',
-    p.activationKeySample || 'ARNO-AUTO-DISPATCH-KEY',
-    p.imageUrl || '',
-    1,
-    p.providerId || 'custom',
-    p.providerName || 'Proveedor Externo',
-    p.providerProductId || p.bunaiProductId || p.id,
-    p.bunaiProductId || p.providerProductId || p.id,
-    p.stock || p.bunaiStock || 99,
-    p.wholesalePriceUSD || 0
-  ], function(err) {
-    if (err) {
-      console.error('[MultiProvider] Error sincronizando producto:', err.message);
-      res.status(500).json({ error: err.message });
-      return;
-    }
+  try {
+    await execute(querySql, [
+      p.id,
+      p.name,
+      p.subtitle || 'Licencia Digital Oficial',
+      p.category || 'multimodal',
+      p.badge || 'PROVEEDOR VERIFICADO',
+      p.regionBadge || 'GLOBAL KEY',
+      1,
+      p.discountPercent || 0,
+      p.originalPriceDisplay || '',
+      p.priceDisplay || '0.00',
+      p.g2aPlusPriceDisplay || '',
+      p.priceDisplay,
+      p.originalPriceDisplay || '',
+      p.priceUnit || '',
+      p.numericPrice || 0,
+      p.numericPrice || 0,
+      p.numericOriginalPrice || 0,
+      p.providerName || 'Proveedor Verificado',
+      5.0,
+      100.0,
+      999,
+      1,
+      p.headerBg || 'dark-purple',
+      p.iconType || 'zap',
+      p.description || '',
+      JSON.stringify(p.checklist || ['Entrega automatica garantizada', 'Soporte 24/7 oficial', 'Activacion verificada']),
+      JSON.stringify(p.modelsIncluded || []),
+      JSON.stringify(p.specs || [{ label: 'Proveedor', value: p.providerName || 'API Externa' }, { label: 'Garantia', value: '24 Horas Reposicion' }]),
+      p.idealFor || '',
+      p.activationKeySample || 'ARNO-AUTO-DISPATCH-KEY',
+      p.imageUrl || '',
+      1,
+      p.providerId || 'custom',
+      p.providerName || 'Proveedor Externo',
+      p.providerProductId || p.bunaiProductId || p.id,
+      p.bunaiProductId || p.providerProductId || p.id,
+      p.stock || p.bunaiStock || 99,
+      p.wholesalePriceUSD || 0
+    ]);
     res.json({ success: true, message: 'Producto sincronizado exitosamente en el catalogo de la tienda', id: p.id });
-  });
+  } catch (err) {
+    console.error('[MultiProvider] Error sincronizando producto:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Orders Management Endpoints
 // GET /api/orders - List all customer orders
-app.get('/api/orders', (req, res) => {
-  db.all('SELECT * FROM orders ORDER BY createdAt DESC', [], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.get('/api/orders', async (req, res) => {
+  try {
+    const rows = await getAll('SELECT * FROM orders ORDER BY createdAt DESC');
     const formatted = rows.map((r) => ({
-      ...r,
-      items: r.items ? JSON.parse(r.items) : [],
+      id: r.id,
+      customerName: r.customername || r.customerName,
+      customerEmail: r.customeremail || r.customerEmail,
+      customerPhone: r.customerphone || r.customerPhone,
+      paymentMethod: r.paymentmethod || r.paymentMethod,
+      totalPEN: Number(r.totalpen ?? r.totalPEN ?? 0),
+      status: r.status,
+      fulfillmentStatus: r.fulfillmentstatus || r.fulfillmentStatus,
+      items: r.items ? (typeof r.items === 'string' ? JSON.parse(r.items) : r.items) : [],
+      notes: r.notes,
+      createdAt: r.createdat || r.createdAt,
+      updatedAt: r.updatedat || r.updatedAt,
     }));
     res.json(formatted);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/orders - Create or record an order from store checkout
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', async (req, res) => {
   const { id, customerName, customerEmail, customerPhone, paymentMethod, totalPEN, items, notes } = req.body;
   if (!id || !items) {
     res.status(400).json({ error: 'Faltan campos id o items' });
@@ -985,7 +961,7 @@ app.post('/api/orders', (req, res) => {
   const itemsJson = typeof items === 'string' ? items : JSON.stringify(items);
   const parsedItems = typeof items === 'string' ? JSON.parse(items) : items;
 
-  const query = `
+  const querySql = `
     INSERT INTO orders (id, customerName, customerEmail, customerPhone, paymentMethod, totalPEN, status, fulfillmentStatus, items, notes, createdAt, updatedAt)
     VALUES (?, ?, ?, ?, ?, ?, 'completado', 'entregado', ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     ON CONFLICT(id) DO UPDATE SET
@@ -999,48 +975,46 @@ app.post('/api/orders', (req, res) => {
       updatedAt=CURRENT_TIMESTAMP
   `;
 
-  db.run(query, [
-    id,
-    customerName || 'Cliente ArnoTienda',
-    customerEmail || '',
-    customerPhone || '',
-    paymentMethod || 'Yape / Plin',
-    totalPEN || 0,
-    itemsJson,
-    notes || 'Orden registrada desde pasarela de compra'
-  ], async function(err) {
-    if (err) {
-      console.error('[Orders] Error guardando pedido:', err.message);
-      res.status(500).json({ error: err.message });
-      return;
-    }
+  try {
+    await execute(querySql, [
+      id,
+      customerName || 'Cliente ArnoTienda',
+      customerEmail || '',
+      customerPhone || '',
+      paymentMethod || 'Yape / Plin',
+      totalPEN || 0,
+      itemsJson,
+      notes || 'Orden registrada desde pasarela de compra'
+    ]);
 
     // Check if any item belongs to an active auto-fulfill provider
     try {
-      db.all('SELECT * FROM providers WHERE autoFulfill = 1', [], async (errP, providers) => {
-        if (!errP && providers && providers.length > 0) {
-          for (const item of parsedItems) {
-            const prov = providers.find((p) => p.id === item.providerId) || providers.find((p) => p.id === 'bunaistore');
-            if (prov && item.providerProductId) {
-              fulfillOrderItemWithProvider(prov, item.providerProductId, item.quantity || 1)
-                .then((dispatchRes) => {
-                  if (dispatchRes.success && dispatchRes.keys?.length > 0) {
-                    console.log(`[AutoFulfill] Pedido ${id} despachado exitosamente con ${prov.name}`);
-                  }
-                })
-                .catch((e) => console.warn('[AutoFulfill] Despacho pendiente de saldo:', e.message));
-            }
+      const providers = await getAll('SELECT * FROM providers WHERE autoFulfill = 1');
+      if (providers && providers.length > 0) {
+        for (const item of parsedItems) {
+          const prov = providers.find((p) => p.id === item.providerId) || providers.find((p) => p.id === 'bunaistore');
+          if (prov && item.providerProductId) {
+            fulfillOrderItemWithProvider(prov, item.providerProductId, item.quantity || 1)
+              .then((dispatchRes) => {
+                if (dispatchRes.success && dispatchRes.keys?.length > 0) {
+                  console.log(`[AutoFulfill] Pedido ${id} despachado exitosamente con ${prov.name}`);
+                }
+              })
+              .catch((e) => console.warn('[AutoFulfill] Despacho pendiente de saldo:', e.message));
           }
         }
-      });
+      }
     } catch {}
 
     res.json({ success: true, message: 'Pedido guardado en la base de datos', orderId: id });
-  });
+  } catch (err) {
+    console.error('[Orders] Error guardando pedido:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // PATCH /api/orders/:id - Update order status or details
-app.patch('/api/orders/:id', (req, res) => {
+app.patch('/api/orders/:id', async (req, res) => {
   const { status, fulfillmentStatus, items, notes } = req.body;
   const orderId = req.params.id;
 
@@ -1072,26 +1046,26 @@ app.patch('/api/orders/:id', (req, res) => {
   updates.push('updatedAt = CURRENT_TIMESTAMP');
   params.push(orderId);
 
-  const query = `UPDATE orders SET ${updates.join(', ')} WHERE id = ?`;
-  db.run(query, params, function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+  const querySql = `UPDATE orders SET ${updates.join(', ')} WHERE id = ?`;
+  try {
+    await execute(querySql, params);
     res.json({ success: true, message: 'Pedido actualizado exitosamente' });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/orders/:id/dispatch - Manually re-trigger fulfillment with provider API
-app.post('/api/orders/:id/dispatch', (req, res) => {
+app.post('/api/orders/:id/dispatch', async (req, res) => {
   const orderId = req.params.id;
-  db.get('SELECT * FROM orders WHERE id = ?', [orderId], async (err, order) => {
-    if (err || !order) {
+  try {
+    const order = await getOne('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (!order) {
       res.status(404).json({ error: 'Pedido no encontrado' });
       return;
     }
 
-    const items = order.items ? JSON.parse(order.items) : [];
+    const items = order.items ? (typeof order.items === 'string' ? JSON.parse(order.items) : order.items) : [];
     const firstItem = items[0];
     if (!firstItem) {
       res.status(400).json({ error: 'El pedido no tiene items' });
@@ -1099,111 +1073,111 @@ app.post('/api/orders/:id/dispatch', (req, res) => {
     }
 
     const providerId = firstItem.providerId || 'bunaistore';
-    db.get('SELECT * FROM providers WHERE id = ?', [providerId], async (errP, prov) => {
-      if (errP || !prov) {
-        res.status(400).json({ error: `Proveedor ${providerId} no configurado` });
-        return;
-      }
+    const prov = await getOne('SELECT * FROM providers WHERE id = ?', [providerId]);
+    if (!prov) {
+      res.status(400).json({ error: `Proveedor ${providerId} no configurado` });
+      return;
+    }
 
-      const prodId = firstItem.providerProductId || firstItem.productId?.replace('bunai-', '');
-      const fulfillRes = await fulfillOrderItemWithProvider(prov, prodId, firstItem.quantity || 1);
+    const providerObj = {
+      id: prov.id,
+      name: prov.name,
+      type: prov.type,
+      apiBaseUrl: prov.apibaseurl || prov.apiBaseUrl,
+      apiKey: prov.apikey || prov.apiKey,
+      apiSecret: prov.apisecret || prov.apiSecret,
+      authHeaderName: prov.authheadername || prov.authHeaderName,
+      pingEndpoint: prov.pingendpoint || prov.pingEndpoint,
+    };
 
-      if (fulfillRes.success && fulfillRes.keys?.length > 0) {
-        firstItem.activationKey = fulfillRes.keys[0];
-        firstItem.providerStatus = 'entregado';
-        db.run('UPDATE orders SET fulfillmentStatus = ?, items = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [
-          'entregado',
-          JSON.stringify(items),
-          orderId,
-        ]);
-        res.json({ success: true, message: 'Despacho completado con proveedor', keys: fulfillRes.keys });
-      } else {
-        res.status(400).json({
-          success: false,
-          error: fulfillRes.error || 'Error al conectar con la API del proveedor (verifique saldo disponible)',
-        });
-      }
-    });
-  });
+    const prodId = firstItem.providerProductId || firstItem.productId?.replace('bunai-', '');
+    const fulfillRes = await fulfillOrderItemWithProvider(providerObj, prodId, firstItem.quantity || 1);
+
+    if (fulfillRes.success && fulfillRes.keys?.length > 0) {
+      firstItem.activationKey = fulfillRes.keys[0];
+      firstItem.providerStatus = 'entregado';
+      await execute('UPDATE orders SET fulfillmentStatus = ?, items = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [
+        'entregado',
+        JSON.stringify(items),
+        orderId,
+      ]);
+      res.json({ success: true, message: 'Despacho completado con proveedor', keys: fulfillRes.keys });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: fulfillRes.error || 'Error al conectar con la API del proveedor (verifique saldo disponible)',
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Store Metrics & Settings
 // GET /api/store/metrics - Real-time financial dashboard & sales
-app.get('/api/store/metrics', (req, res) => {
-  db.all('SELECT * FROM orders', [], (err, ordersRows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    db.all('SELECT * FROM products WHERE isActive = 1', [], (err2, prodRows) => {
-      if (err2) {
-        res.status(500).json({ error: err2.message });
-        return;
-      }
-      db.all('SELECT * FROM providers', [], (err3, provRows) => {
-        if (err3) {
-          res.status(500).json({ error: err3.message });
-          return;
-        }
+app.get('/api/store/metrics', async (req, res) => {
+  try {
+    const ordersRows = await getAll('SELECT * FROM orders');
+    const prodRows = await getAll('SELECT * FROM products WHERE isActive = 1');
+    const provRows = await getAll('SELECT * FROM providers');
 
-        const totalOrders = (ordersRows || []).length;
-        const totalSalesPEN = (ordersRows || []).reduce((acc, o) => acc + (o.totalPEN || 0), 0);
+    const totalOrders = (ordersRows || []).length;
+    const totalSalesPEN = (ordersRows || []).reduce((acc, o) => acc + Number(o.totalpen ?? o.totalPEN ?? 0), 0);
 
-        let estimatedCostPEN = 0;
-        (ordersRows || []).forEach((o) => {
-          try {
-            const items = o.items ? JSON.parse(o.items) : [];
-            items.forEach((it) => {
-              const prod = (prodRows || []).find((p) => p.id === it.productId || p.name === it.productName);
-              const costUSD = prod ? (prod.wholesalePriceUSD || 0) : 0;
-              estimatedCostPEN += costUSD * 3.75 * (it.quantity || 1);
-            });
-          } catch {}
+    let estimatedCostPEN = 0;
+    (ordersRows || []).forEach((o) => {
+      try {
+        const items = o.items ? (typeof o.items === 'string' ? JSON.parse(o.items) : o.items) : [];
+        items.forEach((it) => {
+          const prod = (prodRows || []).find((p) => p.id === it.productId || p.name === it.productName);
+          const costUSD = prod ? Number(prod.wholesalepriceusd ?? prod.wholesalePriceUSD ?? 0) : 0;
+          estimatedCostPEN += costUSD * 3.75 * (it.quantity || 1);
         });
-
-        const netProfitPEN = Math.max(0, totalSalesPEN - estimatedCostPEN);
-        const marginPercent = totalSalesPEN > 0 ? Math.round((netProfitPEN / totalSalesPEN) * 100) : 0;
-
-        res.json({
-          totalOrders,
-          totalSalesPEN: Math.round(totalSalesPEN * 10) / 10,
-          estimatedCostPEN: Math.round(estimatedCostPEN * 10) / 10,
-          netProfitPEN: Math.round(netProfitPEN * 10) / 10,
-          marginPercent,
-          activeProductsCount: (prodRows || []).length,
-          activeProvidersCount: (provRows || []).filter((p) => p.status === 'active').length,
-          totalProvidersCount: (provRows || []).length,
-          providers: (provRows || []).map((p) => ({
-            id: p.id,
-            name: p.name,
-            type: p.type,
-            status: p.status,
-            balanceUSD: p.balanceUSD || 0,
-            productCount: (prodRows || []).filter((pr) => pr.providerId === p.id).length,
-          })),
-        });
-      });
+      } catch {}
     });
-  });
+
+    const netProfitPEN = Math.max(0, totalSalesPEN - estimatedCostPEN);
+    const marginPercent = totalSalesPEN > 0 ? Math.round((netProfitPEN / totalSalesPEN) * 100) : 0;
+
+    res.json({
+      totalOrders,
+      totalSalesPEN: Math.round(totalSalesPEN * 10) / 10,
+      estimatedCostPEN: Math.round(estimatedCostPEN * 10) / 10,
+      netProfitPEN: Math.round(netProfitPEN * 10) / 10,
+      marginPercent,
+      activeProductsCount: (prodRows || []).length,
+      activeProvidersCount: (provRows || []).filter((p) => p.status === 'active').length,
+      totalProvidersCount: (provRows || []).length,
+      providers: (provRows || []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        status: p.status,
+        balanceUSD: Number(p.balanceusd ?? p.balanceUSD ?? 0),
+        productCount: (prodRows || []).filter((pr) => (pr.providerid || pr.providerId) === p.id).length,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/store/settings - Store configuration
-app.get('/api/store/settings', (req, res) => {
-  db.all('SELECT * FROM store_settings', [], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.get('/api/store/settings', async (req, res) => {
+  try {
+    const rows = await getAll('SELECT * FROM store_settings');
     const settings = {};
     (rows || []).forEach((r) => {
       settings[r.key] = r.value;
     });
     res.json(settings);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/store/settings - Update store configuration
-app.post('/api/store/settings', (req, res) => {
+app.post('/api/store/settings', async (req, res) => {
   const settings = req.body;
   const keys = Object.keys(settings);
   if (keys.length === 0) {
@@ -1211,19 +1185,18 @@ app.post('/api/store/settings', (req, res) => {
     return;
   }
 
-  const stmt = db.prepare('INSERT INTO store_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
-  keys.forEach((k) => {
-    stmt.run([k, String(settings[k])]);
-  });
-  stmt.finalize((err) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
+  try {
+    for (const k of keys) {
+      await execute('INSERT INTO store_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', [k, String(settings[k])]);
     }
-    res.json({ success: true, message: 'Configuracion guardada exitosamente' });
-  });
+    res.json({ success: true, message: 'Configuración guardada exitosamente' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor API SQLite corriendo en http://localhost:${PORT}`);
+// Start Server & Connect to PostgreSQL
+app.listen(PORT, async () => {
+  console.log(`Servidor API PostgreSQL corriendo en el puerto ${PORT}`);
+  await initializeDatabase();
 });
