@@ -28,6 +28,7 @@ import { ShoppingBag, ShieldCheck, Zap, Lock, Headphones, CheckCircle2 } from 'l
 
 export const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    // Default to clean white & lila light mode as defined by brand identity
     return (localStorage.getItem('arno_theme') as 'dark' | 'light') || 'light';
   });
 
@@ -312,52 +313,52 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Trust & Guarantee Strip in Arno Brand Palette */}
-      <section className="border-t border-white/10 bg-[#171519] py-10 px-4 md:px-8 mt-14 select-none">
+      {/* Trust & Guarantee Strip in Clean White/Gray with Signature Lila & Brand Accents */}
+      <section className="border-t border-[#E9E9F5] bg-white py-12 px-4 md:px-8 mt-14 select-none">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#1E1C21] border border-white/10">
+          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#F5F5FB] border border-[#E9E9F5] hover:border-[#847CB8]/40 transition-colors">
             <div className="p-3 rounded-2xl bg-[#847CB8]/15 text-[#847CB8] shrink-0">
               <Zap className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-[#E9E9F5]">Entrega Instantánea</h4>
-              <p className="text-xs text-[#9A93AC] mt-0.5 leading-snug">
+              <h4 className="text-sm font-bold text-[#1E1C21]">Entrega Instantánea</h4>
+              <p className="text-xs text-[#726C82] mt-0.5 leading-snug">
                 Activación digital en menos de 60 segundos tras confirmar el pago.
               </p>
             </div>
           </div>
 
-          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#1E1C21] border border-white/10">
-            <div className="p-3 rounded-2xl bg-[#A7D792]/15 text-[#A7D792] shrink-0">
+          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#F5F5FB] border border-[#E9E9F5] hover:border-[#847CB8]/40 transition-colors">
+            <div className="p-3 rounded-2xl bg-[#A7D792]/20 text-emerald-700 shrink-0">
               <ShieldCheck className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-[#E9E9F5]">Garantía Protegida</h4>
-              <p className="text-xs text-[#9A93AC] mt-0.5 leading-snug">
+              <h4 className="text-sm font-bold text-[#1E1C21]">Garantía Protegida</h4>
+              <p className="text-xs text-[#726C82] mt-0.5 leading-snug">
                 Reposición garantizada y soporte técnico continuo oficial.
               </p>
             </div>
           </div>
 
-          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#1E1C21] border border-white/10">
+          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#F5F5FB] border border-[#E9E9F5] hover:border-[#847CB8]/40 transition-colors">
             <div className="p-3 rounded-2xl bg-[#FF66C4]/15 text-[#FF66C4] shrink-0">
               <Lock className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-[#E9E9F5]">Pagos en Soles</h4>
-              <p className="text-xs text-[#9A93AC] mt-0.5 leading-snug">
+              <h4 className="text-sm font-bold text-[#1E1C21]">Pagos en Soles</h4>
+              <p className="text-xs text-[#726C82] mt-0.5 leading-snug">
                 Paga con Yape, Plin, BCP, BBVA, Interbank o Arno Wallet.
               </p>
             </div>
           </div>
 
-          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#1E1C21] border border-white/10">
-            <div className="p-3 rounded-2xl bg-amber-500/15 text-amber-400 shrink-0">
+          <div className="flex items-start space-x-3.5 p-4 rounded-3xl bg-[#F5F5FB] border border-[#E9E9F5] hover:border-[#847CB8]/40 transition-colors">
+            <div className="p-3 rounded-2xl bg-amber-500/15 text-amber-600 shrink-0">
               <Headphones className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-[#E9E9F5]">Atención Directa</h4>
-              <p className="text-xs text-[#9A93AC] mt-0.5 leading-snug">
+              <h4 className="text-sm font-bold text-[#1E1C21]">Atención Directa</h4>
+              <p className="text-xs text-[#726C82] mt-0.5 leading-snug">
                 Asistencia inmediata por WhatsApp para resolver tus dudas.
               </p>
             </div>
@@ -365,9 +366,9 @@ export const App: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 py-8 px-4 md:px-8 text-center text-xs text-[#9A93AC] select-none bg-[#141216]">
-        <p className="font-bold text-[#E9E9F5] mb-1">ArnoTienda • Licencias & Suscripciones Digitales</p>
+      {/* Footer in Clean White */}
+      <footer className="border-t border-[#E9E9F5] py-8 px-4 md:px-8 text-center text-xs text-[#726C82] select-none bg-white">
+        <p className="font-bold text-[#1E1C21] mb-1">ArnoTienda • Licencias & Suscripciones Digitales</p>
         <p>© 2026 ArnoAI Services. Todos los derechos reservados.</p>
       </footer>
 
