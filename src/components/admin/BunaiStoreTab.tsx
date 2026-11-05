@@ -361,8 +361,8 @@ export const BunaiStoreTab: React.FC<Props> = ({ products, onUpdateProducts, sho
         </div>
       </div>
 
-      {/* Batch Recommendation Sync Banner */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-[#847CB8]/20 via-purple-600/10 to-indigo-600/15 border border-[#847CB8]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Batch Recommendation Sync Banner - Solid Clean Minimalist */}
+      <div className="p-6 rounded-3xl bg-[#F5F5FB] border border-[#E9E9F5] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
             <Sparkles className="w-4 h-4 text-amber-400" />

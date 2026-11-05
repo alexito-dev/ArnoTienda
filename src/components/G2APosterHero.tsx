@@ -14,8 +14,8 @@ export const G2APosterHero: React.FC<Props> = ({
 }) => {
   return (
     <div className="relative mb-8 rounded-3xl bg-[var(--color-surface)] border border-[var(--color-border)] p-6 sm:p-8 shadow-xs select-none overflow-hidden">
-      {/* Background Subtle Gradient & Character Frame */}
-      <div className="absolute inset-0 bg-gradient-to-r from-[#847CB8]/10 via-transparent to-[#FF66C4]/10 pointer-events-none" />
+      {/* Background Frame */}
+      <div className="absolute inset-0 bg-[#F5F5FB]/30 pointer-events-none" />
 
       {/* Grid of 4 Vertical Poster Cards (Matching G2A Screenshot) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 relative z-10">

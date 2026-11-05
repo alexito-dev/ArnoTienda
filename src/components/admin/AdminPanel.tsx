@@ -418,7 +418,7 @@ export const AdminPanel: React.FC<Props> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div
               onClick={() => setActiveTab('providers')}
-              className="p-6 rounded-3xl bg-gradient-to-br from-[#847CB8]/20 to-purple-600/10 border border-[#847CB8]/30 hover:border-[#847CB8] transition cursor-pointer space-y-2"
+              className="p-6 rounded-3xl bg-[#F5F5FB] border border-[#E9E9F5] hover:border-[#847CB8] transition cursor-pointer space-y-2 shadow-xs"
             >
               <div className="w-10 h-10 rounded-2xl bg-[#847CB8] text-white flex items-center justify-center font-bold shadow-md">
                 <Globe className="w-5 h-5" />
@@ -431,7 +431,7 @@ export const AdminPanel: React.FC<Props> = ({
 
             <div
               onClick={() => setActiveTab('orders')}
-              className="p-6 rounded-3xl bg-gradient-to-br from-blue-600/20 to-indigo-600/10 border border-blue-500/30 hover:border-blue-400 transition cursor-pointer space-y-2"
+              className="p-6 rounded-3xl bg-[#F5F5FB] border border-[#E9E9F5] hover:border-blue-400 transition cursor-pointer space-y-2 shadow-xs"
             >
               <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md">
                 <CreditCard className="w-5 h-5" />
@@ -444,7 +444,7 @@ export const AdminPanel: React.FC<Props> = ({
 
             <div
               onClick={() => setActiveTab('products')}
-              className="p-6 rounded-3xl bg-gradient-to-br from-emerald-600/20 to-teal-600/10 border border-emerald-500/30 hover:border-emerald-400 transition cursor-pointer space-y-2"
+              className="p-6 rounded-3xl bg-[#F5F5FB] border border-[#E9E9F5] hover:border-emerald-400 transition cursor-pointer space-y-2 shadow-xs"
             >
               <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md">
                 <ShoppingBag className="w-5 h-5" />

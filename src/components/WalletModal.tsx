@@ -88,8 +88,8 @@ export const WalletModal: React.FC<Props> = ({ isOpen, onClose, onBalanceUpdated
           </button>
         </div>
 
-        {/* Balance Highlight Banner */}
-        <div className="p-6 bg-gradient-to-br from-[#847CB8]/20 via-[#847CB8]/5 to-transparent border-b border-[var(--color-border)] flex items-center justify-between">
+        {/* Balance Highlight Banner - Solid Minimalist Surface */}
+        <div className="p-6 bg-[#F5F5FB] border-b border-[#E9E9F5] flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider block">
               Saldo Disponible

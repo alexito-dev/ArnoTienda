@@ -79,20 +79,17 @@ export const G2AHeroBanner: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Right Preview Card in Clean White & Lila */}
+        {/* Right Preview Card in Clean Rectangular Sneaker Style (Solid Minimalist Colors) */}
         <div className="lg:col-span-5 flex justify-center lg:justify-end">
-          <div className="w-full max-w-xs rounded-[32px] bg-[#F5F5FB] border border-[#E9E9F5] p-4 shadow-md">
-            {/* Inner Light Window */}
-            <div className="relative aspect-[4/3] w-full rounded-[24px] bg-white flex items-center justify-center overflow-hidden p-6 shadow-xs border border-[#E9E9F5]/60">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-[#1B73E8] via-[#847CB8] to-[#FF66C4] p-0.5 shadow-lg flex items-center justify-center">
-                <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center">
-                  <svg viewBox="0 0 48 48" className="w-12 h-12" fill="none">
-                    <path
-                      d="M24 4C24 15.0457 15.0457 24 4 24C15.0457 24 24 32.9543 24 44C24 32.9543 32.9543 24 44 24C32.9543 24 24 15.0457 24 4Z"
-                      fill="#847CB8"
-                    />
-                  </svg>
-                </div>
+          <div className="w-full max-w-xs rounded-[36px] bg-[#F5F5FB] border border-[#E9E9F5] p-4 shadow-sm">
+            {/* Inner Light Window (Rectangular Proportion) */}
+            <div className="relative aspect-[3/3.5] w-full rounded-[26px] bg-white flex items-center justify-center overflow-hidden p-6 shadow-xs border border-[#E9E9F5]/60">
+              <div className="w-20 h-20 rounded-2xl bg-[#847CB8] text-white flex items-center justify-center shadow-md">
+                <svg viewBox="0 0 48 48" className="w-12 h-12" fill="white">
+                  <path
+                    d="M24 4C24 15.0457 15.0457 24 4 24C15.0457 24 24 32.9543 24 44C24 32.9543 32.9543 24 44 24C32.9543 24 24 15.0457 24 4Z"
+                  />
+                </svg>
               </div>
             </div>
 
